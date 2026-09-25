@@ -1,0 +1,6 @@
+ULTRON is a language model built from scratch in C++.
+A language model learns patterns in text and predicts the next token.
+Transformers use attention to combine information from context.
+ULTRON processes context with embeddings, attention, normalization, and a feed forward network.
+Training changes model parameters so likely next tokens become more probable.
+This small corpus exists as a local smoke-training dataset.

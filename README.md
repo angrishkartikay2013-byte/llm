@@ -2,12 +2,12 @@
 
 A Large Language Model engine built from scratch in modern C++20.
 
-## Build and test
+Windows quick start:
 
-```bash
-cmake -S . -B build -DBUILD_TESTING=ON
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
+1. Run scripts/build.ps1
+2. Run scripts/train.ps1
+3. Run scripts/run.ps1
 
-The smoke tests cover tensor math, tokenization, optimization, training, evaluation, and generation.
+Custom training data can be supplied with the -Data parameter.
+
+Current training updates the output projection and input embeddings while the Transformer remains fixed for the next backpropagation milestone.
