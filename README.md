@@ -1,6 +1,13 @@
 # ULTRON LLM
 
-ULTRON now updates both the output projection and the token embedding matrix during next-token training.
+A Large Language Model engine built from scratch in modern C++20.
 
-The training path is still intentionally small and CPU-oriented, but the model now has trainable input representations rather than only a trainable output layer.
+## Build and test
 
+```bash
+cmake -S . -B build -DBUILD_TESTING=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+The smoke tests cover tensor math, tokenization, optimization, training, evaluation, and generation.
