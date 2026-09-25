@@ -13,7 +13,6 @@
 #include <limits>
 #include <random>
 #include <sstream>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -49,42 +48,26 @@ public:
           embedding(1, kEmbeddingSize),
           transformer(kEmbeddingSize, kHeads, kFeedForwardSize),
           output_weights(),
-          positional(
-              kMaxSequenceLength,
-              std::vector<float>(
-                  kEmbeddingSize,
-                  0.0f)) {
-
+          positional(kMaxSequenceLength,
+                     std::vector<float>(kEmbeddingSize, 0.0f)) {
         tokenizer.train(starter_corpus);
         rebuild_trainable_parameters();
         initialize_positions();
     }
 
     void rebuild_trainable_parameters() {
-        const std::size_t vocabulary =
-            tokenizer.vocabulary_size();
-
-        embedding =
-            Embedding(vocabulary, kEmbeddingSize);
-
+        const std::size_t vocabulary = tokenizer.vocabulary_size();
+        embedding = Embedding(vocabulary, kEmbeddingSize);
         output_weights.assign(
             vocabulary,
-            std::vector<float>(
-                kEmbeddingSize,
-                0.0f));
+            std::vector<float>(kEmbeddingSize, 0.0f));
 
         std::mt19937 generator(91);
-
         const float limit =
-            std::sqrt(
-                6.0f /
-                static_cast<float>(
-                    vocabulary +
-                    kEmbeddingSize));
-
+            std::sqrt(6.0f / static_cast<float>(
+                vocabulary + kEmbeddingSize));
         std::uniform_real_distribution<float> distribution(
-            -limit,
-            limit);
+            -limit, limit);
 
         for (auto& row : output_weights) {
             for (float& value : row) {
@@ -97,31 +80,23 @@ public:
         for (std::size_t position = 0;
              position < kMaxSequenceLength;
              ++position) {
-
             for (std::size_t dimension = 0;
                  dimension < kEmbeddingSize;
                  ++dimension) {
-
                 const float exponent =
                     static_cast<float>(dimension) /
                     static_cast<float>(kEmbeddingSize);
-
                 positional[position][dimension] =
                     std::sin(
                         static_cast<float>(position) /
-                        std::pow(
-                            10000.0f,
-                            exponent));
+                        std::pow(10000.0f, exponent));
             }
         }
     }
 
     std::vector<std::vector<float>> encode_context(
         const std::vector<int>& tokens) const {
-
-        if (tokens.empty()) {
-            return {};
-        }
+        if (tokens.empty()) return {};
 
         const std::size_t start =
             tokens.size() > kMaxSequenceLength
@@ -134,24 +109,18 @@ public:
         for (std::size_t index = start;
              index < tokens.size();
              ++index) {
-
             const std::size_t token_id =
                 tokens[index] < 0
                     ? 0
-                    : static_cast<std::size_t>(
-                        tokens[index]);
+                    : static_cast<std::size_t>(tokens[index]);
 
-            auto state =
-                embedding.lookup(token_id);
-
-            const std::size_t position =
-                index - start;
+            auto state = embedding.lookup(token_id);
+            const std::size_t position = index - start;
 
             for (std::size_t dimension = 0;
                  dimension < kEmbeddingSize;
                  ++dimension) {
-                state[dimension] +=
-                    positional[position][dimension];
+                state[dimension] += positional[position][dimension];
             }
 
             states.push_back(std::move(state));
@@ -162,7 +131,6 @@ public:
 
     std::vector<float> logits(
         const std::vector<float>& hidden) const {
-
         std::vector<float> result(
             output_weights.size(),
             0.0f);
@@ -170,11 +138,9 @@ public:
         for (std::size_t token = 0;
              token < output_weights.size();
              ++token) {
-
             for (std::size_t dimension = 0;
                  dimension < kEmbeddingSize;
                  ++dimension) {
-
                 result[token] +=
                     hidden[dimension] *
                     output_weights[token][dimension];
@@ -195,20 +161,15 @@ ULTRONModel::ULTRONModel()
     : impl_(std::make_unique<Impl>()) {}
 
 ULTRONModel::~ULTRONModel() = default;
-
 ULTRONModel::ULTRONModel(ULTRONModel&&) noexcept = default;
+ULTRONModel& ULTRONModel::operator=(ULTRONModel&&) noexcept = default;
 
-ULTRONModel& ULTRONModel::operator=(
-    ULTRONModel&&) noexcept = default;
-
-void ULTRONModel::train(
+float ULTRONModel::train(
     const std::string& text,
     std::size_t epochs,
     float learning_rate) {
 
-    if (text.empty() || epochs == 0) {
-        return;
-    }
+    if (text.empty() || epochs == 0) return 0.0f;
 
     const std::size_t old_vocab =
         impl_->tokenizer.vocabulary_size();
@@ -219,16 +180,12 @@ void ULTRONModel::train(
         impl_->rebuild_trainable_parameters();
     }
 
-    const auto tokens =
-        impl_->tokenizer.encode(text);
+    const auto tokens = impl_->tokenizer.encode(text);
 
-    if (tokens.size() < 2) {
-        return;
-    }
+    if (tokens.size() < 2) return 0.0f;
 
     const std::size_t output_parameter_count =
-        impl_->output_weights.size() *
-        kEmbeddingSize;
+        impl_->output_weights.size() * kEmbeddingSize;
 
     AdamOptimizer output_optimizer(
         output_parameter_count,
@@ -238,16 +195,12 @@ void ULTRONModel::train(
         kEmbeddingSize,
         learning_rate * 0.5f);
 
-    std::vector<float> weights(
-        output_parameter_count);
-
-    std::vector<float> gradients(
-        output_parameter_count);
+    std::vector<float> weights(output_parameter_count);
+    std::vector<float> gradients(output_parameter_count);
 
     for (std::size_t token = 0;
          token < impl_->output_weights.size();
          ++token) {
-
         std::copy(
             impl_->output_weights[token].begin(),
             impl_->output_weights[token].end(),
@@ -255,6 +208,9 @@ void ULTRONModel::train(
                 static_cast<std::ptrdiff_t>(
                     token * kEmbeddingSize));
     }
+
+    double total_loss = 0.0;
+    std::size_t samples = 0;
 
     for (std::size_t epoch = 0;
          epoch < epochs;
@@ -273,9 +229,7 @@ void ULTRONModel::train(
             const auto hidden_states =
                 impl_->encode_context(context);
 
-            if (hidden_states.empty()) {
-                continue;
-            }
+            if (hidden_states.empty()) continue;
 
             const auto& hidden =
                 hidden_states.back();
@@ -287,11 +241,9 @@ void ULTRONModel::train(
             for (std::size_t token = 0;
                  token < impl_->output_weights.size();
                  ++token) {
-
                 for (std::size_t dimension = 0;
                      dimension < kEmbeddingSize;
                      ++dimension) {
-
                     current_logits[token] +=
                         hidden[dimension] *
                         weights[
@@ -303,16 +255,25 @@ void ULTRONModel::train(
             const auto probabilities =
                 ultron_softmax(current_logits);
 
-            ultron_output_gradient(
-                hidden,
-                probabilities,
+            const std::size_t target =
                 static_cast<std::size_t>(
                     std::max(
                         tokens[position + 1],
-                        0)),
+                        0));
+
+            total_loss +=
+                ultron_cross_entropy_loss(
+                    probabilities,
+                    target);
+
+            ++samples;
+
+            ultron_output_gradient(
+                hidden,
+                probabilities,
+                target,
                 gradients);
 
-            // Backpropagate the output error into the input embedding.
             std::vector<float> hidden_gradient(
                 kEmbeddingSize,
                 0.0f);
@@ -323,18 +284,11 @@ void ULTRONModel::train(
 
                 const float error =
                     probabilities[token] -
-                    (token ==
-                     static_cast<std::size_t>(
-                         std::max(
-                             tokens[position + 1],
-                             0))
-                         ? 1.0f
-                         : 0.0f);
+                    (token == target ? 1.0f : 0.0f);
 
                 for (std::size_t dimension = 0;
                      dimension < kEmbeddingSize;
                      ++dimension) {
-
                     hidden_gradient[dimension] +=
                         error *
                         weights[
@@ -361,7 +315,6 @@ void ULTRONModel::train(
     for (std::size_t token = 0;
          token < impl_->output_weights.size();
          ++token) {
-
         std::copy(
             weights.begin() +
                 static_cast<std::ptrdiff_t>(
@@ -371,6 +324,12 @@ void ULTRONModel::train(
                     (token + 1) * kEmbeddingSize),
             impl_->output_weights[token].begin());
     }
+
+    return samples == 0
+        ? 0.0f
+        : static_cast<float>(
+            total_loss /
+            static_cast<double>(samples));
 }
 
 std::string ULTRONModel::generate(
@@ -380,20 +339,13 @@ std::string ULTRONModel::generate(
     std::size_t top_k,
     unsigned int seed) const {
 
-    if (max_new_tokens == 0) {
-        return prompt;
-    }
-
-    if (temperature <= 0.0f) {
-        temperature = 1.0f;
-    }
+    if (max_new_tokens == 0) return prompt;
+    if (temperature <= 0.0f) temperature = 1.0f;
 
     std::vector<int> tokens =
         impl_->tokenizer.encode(prompt);
 
-    if (tokens.empty()) {
-        tokens.push_back(0);
-    }
+    if (tokens.empty()) tokens.push_back(0);
 
     std::mt19937 generator(seed);
     std::ostringstream result;
@@ -406,9 +358,7 @@ std::string ULTRONModel::generate(
         const auto hidden_states =
             impl_->encode_context(tokens);
 
-        if (hidden_states.empty()) {
-            break;
-        }
+        if (hidden_states.empty()) break;
 
         const auto raw_logits =
             impl_->logits(hidden_states.back());
@@ -434,28 +384,22 @@ std::string ULTRONModel::generate(
 
         if (top_k > 0 &&
             top_k < candidates.size()) {
-
             std::partial_sort(
                 candidates.begin(),
                 candidates.begin() +
-                    static_cast<std::ptrdiff_t>(
-                        top_k),
+                    static_cast<std::ptrdiff_t>(top_k),
                 candidates.end(),
-                [&](std::size_t a,
-                    std::size_t b) {
+                [&](std::size_t a, std::size_t b) {
                     return scaled_logits[a] >
                            scaled_logits[b];
                 });
-
             candidates.resize(top_k);
         }
 
         std::vector<float> candidate_logits;
-        candidate_logits.reserve(
-            candidates.size());
+        candidate_logits.reserve(candidates.size());
 
-        for (std::size_t candidate :
-             candidates) {
+        for (std::size_t candidate : candidates) {
             candidate_logits.push_back(
                 scaled_logits[candidate]);
         }
@@ -463,10 +407,9 @@ std::string ULTRONModel::generate(
         const auto probabilities =
             ultron_softmax(candidate_logits);
 
-        std::discrete_distribution<std::size_t>
-            sampler(
-                probabilities.begin(),
-                probabilities.end());
+        std::discrete_distribution<std::size_t> sampler(
+            probabilities.begin(),
+            probabilities.end());
 
         const std::size_t selected =
             candidates[sampler(generator)];
@@ -483,7 +426,6 @@ std::string ULTRONModel::generate(
                 result.str().back() != ' ') {
                 result << ' ';
             }
-
             result << word;
         }
     }
@@ -494,13 +436,8 @@ std::string ULTRONModel::generate(
 bool ULTRONModel::save_checkpoint(
     const std::string& path) const {
 
-    std::ofstream output(
-        path,
-        std::ios::binary);
-
-    if (!output) {
-        return false;
-    }
+    std::ofstream output(path, std::ios::binary);
+    if (!output) return false;
 
     const char magic[] = "ULTRON1";
     output.write(magic, sizeof(magic) - 1);
@@ -524,16 +461,11 @@ bool ULTRONModel::save_checkpoint(
 
     for (const auto& row :
          impl_->output_weights) {
-
         output.write(
-            reinterpret_cast<const char*>(
-                row.data()),
+            reinterpret_cast<const char*>(row.data()),
             static_cast<std::streamsize>(
                 row.size() * sizeof(float)));
-
-        if (!output) {
-            return false;
-        }
+        if (!output) return false;
     }
 
     return true;
@@ -542,13 +474,8 @@ bool ULTRONModel::save_checkpoint(
 bool ULTRONModel::load_checkpoint(
     const std::string& path) {
 
-    std::ifstream input(
-        path,
-        std::ios::binary);
-
-    if (!input) {
-        return false;
-    }
+    std::ifstream input(path, std::ios::binary);
+    if (!input) return false;
 
     const char expected[] = "ULTRON1";
     char magic[sizeof(expected) - 1]{};
@@ -574,17 +501,12 @@ bool ULTRONModel::load_checkpoint(
 
     Tokenizer tokenizer;
 
-    if (!tokenizer.load(input)) {
-        return false;
-    }
+    if (!tokenizer.load(input)) return false;
 
-    Embedding embedding(
-        1,
-        kEmbeddingSize);
+    Embedding embedding(1, kEmbeddingSize);
 
     if (!embedding.load(input) ||
-        embedding.embedding_size() !=
-            kEmbeddingSize ||
+        embedding.embedding_size() != kEmbeddingSize ||
         embedding.vocabulary_size() !=
             tokenizer.vocabulary_size()) {
         return false;
@@ -595,18 +517,15 @@ bool ULTRONModel::load_checkpoint(
 
     if (!read_u64(input, vocabulary) ||
         !read_u64(input, dimension) ||
-        vocabulary !=
-            tokenizer.vocabulary_size() ||
+        vocabulary != tokenizer.vocabulary_size() ||
         dimension != kEmbeddingSize) {
         return false;
     }
 
     std::vector<std::vector<float>> weights(
-        static_cast<std::size_t>(
-            vocabulary),
+        static_cast<std::size_t>(vocabulary),
         std::vector<float>(
-            static_cast<std::size_t>(
-                dimension),
+            static_cast<std::size_t>(dimension),
             0.0f));
 
     for (auto& row : weights) {
@@ -614,20 +533,12 @@ bool ULTRONModel::load_checkpoint(
             reinterpret_cast<char*>(row.data()),
             static_cast<std::streamsize>(
                 row.size() * sizeof(float)));
-
-        if (!input) {
-            return false;
-        }
+        if (!input) return false;
     }
 
-    impl_->tokenizer =
-        std::move(tokenizer);
-
-    impl_->embedding =
-        std::move(embedding);
-
-    impl_->output_weights =
-        std::move(weights);
+    impl_->tokenizer = std::move(tokenizer);
+    impl_->embedding = std::move(embedding);
+    impl_->output_weights = std::move(weights);
 
     return true;
 }
