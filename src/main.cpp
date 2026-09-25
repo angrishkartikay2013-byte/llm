@@ -85,7 +85,7 @@ Options parse(int argc, char** argv) {
                 << "--max-tokens N --temperature T\n"
                 << "--top-k K --seed N\n";
 
-            return std::exit(0);
+            std::exit(0);
         } else {
             throw std::invalid_argument(
                 "Unknown argument: " + argument);
@@ -113,7 +113,9 @@ std::string read_file(
 
 int main(int argc, char** argv) {
     try {
-        const Options options = parse(argc, argv);
+        const Options options =
+            parse(argc, argv);
+
         ULTRONModel model;
 
         if (!options.load_file.empty()) {
@@ -147,7 +149,8 @@ int main(int argc, char** argv) {
 
             std::cout
                 << "Training complete. Mean loss: "
-                << loss << '\n';
+                << loss
+                << '\n';
 
             if (!options.save_file.empty()) {
                 if (!model.save_checkpoint(
@@ -165,19 +168,23 @@ int main(int argc, char** argv) {
         }
 
         if (!options.eval_file.empty()) {
-            const auto metrics =
+            const ModelEvaluation metrics =
                 model.evaluate(
                     read_file(options.eval_file));
 
             std::cout
                 << "Evaluation samples: "
-                << metrics.samples << '\n'
+                << metrics.samples
+                << '\n'
                 << "Mean loss: "
-                << metrics.mean_loss << '\n'
+                << metrics.mean_loss
+                << '\n'
                 << "Perplexity: "
-                << metrics.perplexity << '\n'
+                << metrics.perplexity
+                << '\n'
                 << "Accuracy: "
-                << metrics.accuracy << '\n';
+                << metrics.accuracy
+                << '\n';
         }
 
         std::cout
@@ -194,8 +201,13 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            if (input == "exit") break;
-            if (input.empty()) continue;
+            if (input == "exit") {
+                break;
+            }
+
+            if (input.empty()) {
+                continue;
+            }
 
             std::cout
                 << "ULTRON: "
