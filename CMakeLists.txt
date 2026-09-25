@@ -8,6 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(ultron
     src/main.cpp
+    src/config.cpp
+    src/dataset.cpp
     src/tokenizer.cpp
     src/tensor.cpp
     src/embedding.cpp
