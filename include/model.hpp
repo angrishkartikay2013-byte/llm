@@ -14,17 +14,12 @@ public:
     ULTRONModel(ULTRONModel&&) noexcept;
     ULTRONModel& operator=(ULTRONModel&&) noexcept;
 
-    void train(
-        const std::string& text,
-        std::size_t epochs = 1,
-        float learning_rate = 0.003f);
+    void train(const std::string& text, std::size_t epochs = 1, float learning_rate = 0.003f);
 
-    std::string generate(
-        const std::string& prompt,
-        std::size_t max_new_tokens = 1,
-        float temperature = 0.8f,
-        std::size_t top_k = 8,
-        unsigned int seed = 42) const;
+    std::string generate(const std::string& prompt, std::size_t max_new_tokens = 1, float temperature = 0.8f, std::size_t top_k = 8, unsigned int seed = 42) const;
+
+    bool save_checkpoint(const std::string& path) const;
+    bool load_checkpoint(const std::string& path);
 
 private:
     class Impl;

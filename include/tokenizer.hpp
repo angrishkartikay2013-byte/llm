@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <iosfwd>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -12,8 +13,10 @@ public:
     void train(const std::string& text);
     std::vector<int> encode(const std::string& text) const;
     std::string decode(const std::vector<int>& tokens) const;
-
     std::size_t vocabulary_size() const;
+
+    bool save(std::ostream& output) const;
+    bool load(std::istream& input);
 
 private:
     std::unordered_map<std::string, int> token_to_id_;
