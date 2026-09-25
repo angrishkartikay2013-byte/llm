@@ -1,13 +1,15 @@
 # ULTRON LLM
 
-A Large Language Model engine built from scratch in modern C++20.
+ULTRON is a CPU-oriented Large Language Model engine built from scratch in C++20.
 
-Windows quick start:
+## Build
 
-1. Run scripts/build.ps1
-2. Run scripts/train.ps1
-3. Run scripts/run.ps1
+Use `cmake -S . -B build -DBUILD_TESTING=ON` and then `cmake --build build --config Release`.
 
-Custom training data can be supplied with the -Data parameter.
+Run tests with `ctest --test-dir build -C Release --output-on-failure`.
 
-Current training updates the output projection and input embeddings while the Transformer remains fixed for the next backpropagation milestone.
+## Benchmark
+
+Configure with `-DULTRON_BUILD_BENCHMARK=ON`, build, and run `ultron_benchmark`.
+
+The benchmark reports generations per second for the local inference engine.
