@@ -2,7 +2,7 @@
 
 A Large Language Model engine built from scratch in modern C++20.
 
-The tokenizer now keeps punctuation as separate tokens, making training text boundaries more useful than plain whitespace splitting.
+The repository now includes dataset utilities and standard language-model evaluation metrics: mean cross-entropy loss, perplexity, and next-token accuracy.
 
 ## Build
 
@@ -16,3 +16,8 @@ cmake --build build
 ```text
 build/ultron --train data/train.txt --epochs 5 --lr 0.003 --save models/ultron.bin
 ```
+
+## Evaluate
+
+The metrics library can evaluate batches of model logits against target token IDs.
+

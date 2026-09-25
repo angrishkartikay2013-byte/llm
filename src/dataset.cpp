@@ -5,14 +5,11 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
-#include <utility>
 
-TextDataset::TextDataset(std::string text)
-    : text_(std::move(text)), tokens_() {
-    Tokenizer tokenizer;
-    tokenizer.train(text_);
-    tokens_ = tokenizer.encode(text_);
-}
+TextDataset::TextDataset(
+    const std::string& text,
+    const Tokenizer& tokenizer)
+    : tokens_(tokenizer.encode(text)) {}
 
 const std::vector<int>& TextDataset::tokens() const {
     return tokens_;
@@ -31,8 +28,6 @@ TextDataset::next_token_examples(
     if (tokens_.size() < 2 || max_context_length == 0) {
         return examples;
     }
-
-    examples.reserve(tokens_.size() - 1);
 
     for (std::size_t position = 1;
          position < tokens_.size();
@@ -57,6 +52,7 @@ TextDataset::next_token_examples(
 
 std::string read_text_file(const std::string& path) {
     std::ifstream input(path);
+
     if (!input) {
         throw std::runtime_error(
             "Cannot open text file: " + path);
