@@ -28,6 +28,8 @@ target_include_directories(ultron PRIVATE include)
 
 if (MSVC)
     target_compile_options(ultron PRIVATE /W4)
+    target_compile_options(ultron PRIVATE $<$<CONFIG:Release>:/O2> $<$<CONFIG:Release>:/fp:fast>)
 else()
     target_compile_options(ultron PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(ultron PRIVATE $<$<CONFIG:Release>:-O3> $<$<CONFIG:Release>:-ffast-math> $<$<CONFIG:Release>:-march=native>)
 endif()
