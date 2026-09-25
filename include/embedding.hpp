@@ -6,9 +6,16 @@
 
 class Embedding {
 public:
-    Embedding(std::size_t vocabulary_size, std::size_t embedding_size);
+    Embedding(
+        std::size_t vocabulary_size,
+        std::size_t embedding_size);
 
-    const std::vector<float>& lookup(std::size_t token_id) const;
+    const std::vector<float>& lookup(
+        std::size_t token_id) const;
+
+    std::vector<float>& lookup_mutable(
+        std::size_t token_id);
+
     std::size_t vocabulary_size() const;
     std::size_t embedding_size() const;
 
