@@ -4,6 +4,13 @@
 #include <memory>
 #include <string>
 
+struct ModelEvaluation {
+    double mean_loss = 0.0;
+    double perplexity = 0.0;
+    double accuracy = 0.0;
+    std::size_t samples = 0;
+};
+
 class ULTRONModel {
 public:
     ULTRONModel();
@@ -19,6 +26,9 @@ public:
         std::size_t epochs = 1,
         float learning_rate = 0.003f);
 
+    ModelEvaluation evaluate(
+        const std::string& text) const;
+
     std::string generate(
         const std::string& prompt,
         std::size_t max_new_tokens = 1,
@@ -28,4 +38,8 @@ public:
 
     bool save_checkpoint(const std::string& path) const;
     bool load_checkpoint(const std::string& path);
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
 };

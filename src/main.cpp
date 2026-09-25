@@ -1,6 +1,7 @@
 #include "model.hpp"
 
 #include <cstddef>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -10,6 +11,7 @@
 namespace {
 struct Options {
     std::string train_file;
+    std::string eval_file;
     std::string load_file;
     std::string save_file;
     std::size_t epochs = 1;
@@ -43,6 +45,9 @@ Options parse(int argc, char** argv) {
         if (argument == "--train") {
             options.train_file =
                 value_after(i, argc, argv, "--train");
+        } else if (argument == "--eval") {
+            options.eval_file =
+                value_after(i, argc, argv, "--eval");
         } else if (argument == "--load") {
             options.load_file =
                 value_after(i, argc, argv, "--load");
@@ -74,11 +79,13 @@ Options parse(int argc, char** argv) {
 
             std::cout
                 << "ULTRON LLM\n\n"
-                << "--train FILE --epochs N --lr RATE\n"
+                << "--train FILE --eval FILE\n"
+                << "--epochs N --lr RATE\n"
                 << "--load FILE --save FILE\n"
                 << "--max-tokens N --temperature T\n"
                 << "--top-k K --seed N\n";
-            std::exit(0);
+
+            return std::exit(0);
         } else {
             throw std::invalid_argument(
                 "Unknown argument: " + argument);
@@ -107,7 +114,6 @@ std::string read_file(
 int main(int argc, char** argv) {
     try {
         const Options options = parse(argc, argv);
-
         ULTRONModel model;
 
         if (!options.load_file.empty()) {
@@ -119,6 +125,7 @@ int main(int argc, char** argv) {
                     << '\n';
                 return 1;
             }
+
             std::cout
                 << "Checkpoint loaded.\n";
         }
@@ -157,6 +164,22 @@ int main(int argc, char** argv) {
             }
         }
 
+        if (!options.eval_file.empty()) {
+            const auto metrics =
+                model.evaluate(
+                    read_file(options.eval_file));
+
+            std::cout
+                << "Evaluation samples: "
+                << metrics.samples << '\n'
+                << "Mean loss: "
+                << metrics.mean_loss << '\n'
+                << "Perplexity: "
+                << metrics.perplexity << '\n'
+                << "Accuracy: "
+                << metrics.accuracy << '\n';
+        }
+
         std::cout
             << "ULTRON ready. Type 'exit' to quit.\n";
 
@@ -192,6 +215,7 @@ int main(int argc, char** argv) {
             << "ULTRON error: "
             << error.what()
             << '\n';
+
         return 1;
     }
 }

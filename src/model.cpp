@@ -48,26 +48,42 @@ public:
           embedding(1, kEmbeddingSize),
           transformer(kEmbeddingSize, kHeads, kFeedForwardSize),
           output_weights(),
-          positional(kMaxSequenceLength,
-                     std::vector<float>(kEmbeddingSize, 0.0f)) {
+          positional(
+              kMaxSequenceLength,
+              std::vector<float>(
+                  kEmbeddingSize,
+                  0.0f)) {
         tokenizer.train(starter_corpus);
         rebuild_trainable_parameters();
         initialize_positions();
     }
 
     void rebuild_trainable_parameters() {
-        const std::size_t vocabulary = tokenizer.vocabulary_size();
-        embedding = Embedding(vocabulary, kEmbeddingSize);
+        const std::size_t vocabulary =
+            tokenizer.vocabulary_size();
+
+        embedding =
+            Embedding(
+                vocabulary,
+                kEmbeddingSize);
+
         output_weights.assign(
             vocabulary,
-            std::vector<float>(kEmbeddingSize, 0.0f));
+            std::vector<float>(
+                kEmbeddingSize,
+                0.0f));
 
         std::mt19937 generator(91);
         const float limit =
-            std::sqrt(6.0f / static_cast<float>(
-                vocabulary + kEmbeddingSize));
+            std::sqrt(
+                6.0f /
+                static_cast<float>(
+                    vocabulary +
+                    kEmbeddingSize));
+
         std::uniform_real_distribution<float> distribution(
-            -limit, limit);
+            -limit,
+            limit);
 
         for (auto& row : output_weights) {
             for (float& value : row) {
@@ -86,17 +102,23 @@ public:
                 const float exponent =
                     static_cast<float>(dimension) /
                     static_cast<float>(kEmbeddingSize);
+
                 positional[position][dimension] =
                     std::sin(
                         static_cast<float>(position) /
-                        std::pow(10000.0f, exponent));
+                        std::pow(
+                            10000.0f,
+                            exponent));
             }
         }
     }
 
     std::vector<std::vector<float>> encode_context(
         const std::vector<int>& tokens) const {
-        if (tokens.empty()) return {};
+
+        if (tokens.empty()) {
+            return {};
+        }
 
         const std::size_t start =
             tokens.size() > kMaxSequenceLength
@@ -109,18 +131,24 @@ public:
         for (std::size_t index = start;
              index < tokens.size();
              ++index) {
+
             const std::size_t token_id =
                 tokens[index] < 0
                     ? 0
-                    : static_cast<std::size_t>(tokens[index]);
+                    : static_cast<std::size_t>(
+                        tokens[index]);
 
-            auto state = embedding.lookup(token_id);
-            const std::size_t position = index - start;
+            auto state =
+                embedding.lookup(token_id);
+
+            const std::size_t position =
+                index - start;
 
             for (std::size_t dimension = 0;
                  dimension < kEmbeddingSize;
                  ++dimension) {
-                state[dimension] += positional[position][dimension];
+                state[dimension] +=
+                    positional[position][dimension];
             }
 
             states.push_back(std::move(state));
@@ -131,6 +159,7 @@ public:
 
     std::vector<float> logits(
         const std::vector<float>& hidden) const {
+
         std::vector<float> result(
             output_weights.size(),
             0.0f);
@@ -138,9 +167,11 @@ public:
         for (std::size_t token = 0;
              token < output_weights.size();
              ++token) {
+
             for (std::size_t dimension = 0;
                  dimension < kEmbeddingSize;
                  ++dimension) {
+
                 result[token] +=
                     hidden[dimension] *
                     output_weights[token][dimension];
@@ -162,7 +193,9 @@ ULTRONModel::ULTRONModel()
 
 ULTRONModel::~ULTRONModel() = default;
 ULTRONModel::ULTRONModel(ULTRONModel&&) noexcept = default;
-ULTRONModel& ULTRONModel::operator=(ULTRONModel&&) noexcept = default;
+
+ULTRONModel& ULTRONModel::operator=(
+    ULTRONModel&&) noexcept = default;
 
 float ULTRONModel::train(
     const std::string& text,
@@ -185,7 +218,8 @@ float ULTRONModel::train(
     if (tokens.size() < 2) return 0.0f;
 
     const std::size_t output_parameter_count =
-        impl_->output_weights.size() * kEmbeddingSize;
+        impl_->output_weights.size() *
+        kEmbeddingSize;
 
     AdamOptimizer output_optimizer(
         output_parameter_count,
@@ -241,9 +275,11 @@ float ULTRONModel::train(
             for (std::size_t token = 0;
                  token < impl_->output_weights.size();
                  ++token) {
+
                 for (std::size_t dimension = 0;
                      dimension < kEmbeddingSize;
                      ++dimension) {
+
                     current_logits[token] +=
                         hidden[dimension] *
                         weights[
@@ -289,6 +325,7 @@ float ULTRONModel::train(
                 for (std::size_t dimension = 0;
                      dimension < kEmbeddingSize;
                      ++dimension) {
+
                     hidden_gradient[dimension] +=
                         error *
                         weights[
@@ -315,6 +352,7 @@ float ULTRONModel::train(
     for (std::size_t token = 0;
          token < impl_->output_weights.size();
          ++token) {
+
         std::copy(
             weights.begin() +
                 static_cast<std::ptrdiff_t>(
@@ -330,6 +368,87 @@ float ULTRONModel::train(
         : static_cast<float>(
             total_loss /
             static_cast<double>(samples));
+}
+
+ModelEvaluation ULTRONModel::evaluate(
+    const std::string& text) const {
+
+    ModelEvaluation result;
+
+    if (text.empty()) {
+        return result;
+    }
+
+    const auto tokens =
+        impl_->tokenizer.encode(text);
+
+    if (tokens.size() < 2) {
+        return result;
+    }
+
+    double total_loss = 0.0;
+    std::size_t correct = 0;
+
+    for (std::size_t position = 0;
+         position + 1 < tokens.size();
+         ++position) {
+
+        std::vector<int> context(
+            tokens.begin(),
+            tokens.begin() +
+                static_cast<std::ptrdiff_t>(
+                    position + 1));
+
+        const auto hidden_states =
+            impl_->encode_context(context);
+
+        if (hidden_states.empty()) continue;
+
+        const auto logits =
+            impl_->logits(hidden_states.back());
+
+        const auto probabilities =
+            ultron_softmax(logits);
+
+        const std::size_t target =
+            static_cast<std::size_t>(
+                std::max(tokens[position + 1], 0));
+
+        if (target >= probabilities.size()) continue;
+
+        total_loss +=
+            ultron_cross_entropy_loss(
+                probabilities,
+                target);
+
+        const std::size_t prediction =
+            static_cast<std::size_t>(
+                std::max_element(
+                    probabilities.begin(),
+                    probabilities.end()) -
+                probabilities.begin());
+
+        if (prediction == target) ++correct;
+
+        ++result.samples;
+    }
+
+    if (result.samples == 0) {
+        return result;
+    }
+
+    result.mean_loss =
+        total_loss /
+        static_cast<double>(result.samples);
+
+    result.perplexity =
+        std::exp(result.mean_loss);
+
+    result.accuracy =
+        static_cast<double>(correct) /
+        static_cast<double>(result.samples);
+
+    return result;
 }
 
 std::string ULTRONModel::generate(
@@ -378,12 +497,11 @@ std::string ULTRONModel::generate(
 
         for (std::size_t i = 0;
              i < candidates.size();
-             ++i) {
-            candidates[i] = i;
-        }
+             ++i) candidates[i] = i;
 
         if (top_k > 0 &&
             top_k < candidates.size()) {
+
             std::partial_sort(
                 candidates.begin(),
                 candidates.begin() +
@@ -393,13 +511,15 @@ std::string ULTRONModel::generate(
                     return scaled_logits[a] >
                            scaled_logits[b];
                 });
+
             candidates.resize(top_k);
         }
 
         std::vector<float> candidate_logits;
         candidate_logits.reserve(candidates.size());
 
-        for (std::size_t candidate : candidates) {
+        for (std::size_t candidate :
+             candidates) {
             candidate_logits.push_back(
                 scaled_logits[candidate]);
         }
@@ -407,9 +527,10 @@ std::string ULTRONModel::generate(
         const auto probabilities =
             ultron_softmax(candidate_logits);
 
-        std::discrete_distribution<std::size_t> sampler(
-            probabilities.begin(),
-            probabilities.end());
+        std::discrete_distribution<std::size_t>
+            sampler(
+                probabilities.begin(),
+                probabilities.end());
 
         const std::size_t selected =
             candidates[sampler(generator)];
@@ -437,6 +558,7 @@ bool ULTRONModel::save_checkpoint(
     const std::string& path) const {
 
     std::ofstream output(path, std::ios::binary);
+
     if (!output) return false;
 
     const char magic[] = "ULTRON1";
@@ -461,10 +583,13 @@ bool ULTRONModel::save_checkpoint(
 
     for (const auto& row :
          impl_->output_weights) {
+
         output.write(
-            reinterpret_cast<const char*>(row.data()),
+            reinterpret_cast<const char*>(
+                row.data()),
             static_cast<std::streamsize>(
                 row.size() * sizeof(float)));
+
         if (!output) return false;
     }
 
@@ -475,6 +600,7 @@ bool ULTRONModel::load_checkpoint(
     const std::string& path) {
 
     std::ifstream input(path, std::ios::binary);
+
     if (!input) return false;
 
     const char expected[] = "ULTRON1";
@@ -483,9 +609,7 @@ bool ULTRONModel::load_checkpoint(
     input.read(magic, sizeof(magic));
 
     if (!input ||
-        std::string(
-            magic,
-            sizeof(magic)) !=
+        std::string(magic, sizeof(magic)) !=
             std::string(
                 expected,
                 sizeof(expected) - 1)) {
@@ -533,6 +657,7 @@ bool ULTRONModel::load_checkpoint(
             reinterpret_cast<char*>(row.data()),
             static_cast<std::streamsize>(
                 row.size() * sizeof(float)));
+
         if (!input) return false;
     }
 
