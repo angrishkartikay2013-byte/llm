@@ -636,7 +636,7 @@ std::vector<std::vector<float>> TransformerBlock::forward(
                 }
             }
         }
-    }
+        });
 
     std::vector<std::vector<float>> attention_residual(
         sequence_length,
@@ -815,9 +815,9 @@ void TransformerBlock::backward(
                     value_weight_);
         });
 
-    parallel_for_indices(
-        sequence_length,
-        [&](std::size_t query) {
+    for (std::size_t query = 0;
+         query < sequence_length;
+         ++query) {
 
         for (std::size_t head = 0;
              head < num_heads_;
