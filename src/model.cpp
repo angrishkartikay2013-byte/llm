@@ -64,13 +64,19 @@ std::string normalize_memory_key(std::string value) {
     }
 
     while (!normalized.empty() &&
+           std::isspace(static_cast<unsigned char>(normalized.back()))) {
+        normalized.pop_back();
+    }
+
+    while (!normalized.empty() &&
            (normalized.back() == '?' ||
             normalized.back() == '!' ||
             normalized.back() == '.')) {
         normalized.pop_back();
     }
 
-    while (!normalized.empty() && normalized.back() == ' ') {
+    while (!normalized.empty() &&
+           std::isspace(static_cast<unsigned char>(normalized.back()))) {
         normalized.pop_back();
     }
 
