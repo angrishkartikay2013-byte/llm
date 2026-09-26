@@ -25,6 +25,7 @@ struct Options {
     float temperature = 0.8f;
     std::size_t top_k = 8;
     unsigned int seed = 42;
+    std::size_t save_every = 0;
     bool self_test = false;
     bool online_learning = true;
 };
@@ -80,6 +81,9 @@ Options parse(int argc, char** argv) {
             options.seed = static_cast<unsigned int>(
                 std::stoul(
                     value_after(i, argc, argv, "--seed")));
+        } else if (argument == "--save-every") {
+            options.save_every = std::stoull(
+                value_after(i, argc, argv, "--save-every"));
         } else if (argument == "--self-test") {
             options.self_test = true;
         } else if (argument == "--no-online-learning") {
@@ -95,6 +99,7 @@ Options parse(int argc, char** argv) {
                 << "--load FILE --save FILE\n"
                 << "--max-tokens N --temperature T\n"
                 << "--top-k K --seed N\n"
+                << "--save-every N\n"
                 << "--self-test\n"
                 << "--no-online-learning\n";
 
@@ -188,11 +193,33 @@ int main(int argc, char** argv) {
                 << options.epochs
                 << " epoch(s)...\n";
 
+            const auto checkpoint_progress =
+                [&](std::size_t epoch, float) {
+                    if (options.save_file.empty() ||
+                        options.save_every == 0 ||
+                        epoch % options.save_every != 0) {
+                        return;
+                    }
+
+                    if (!model.save_checkpoint(
+                            options.save_file)) {
+                        throw std::runtime_error(
+                            "Failed to save checkpoint during training: " +
+                            options.save_file);
+                    }
+
+                    std::cout
+                        << "Checkpoint saved at epoch "
+                        << epoch
+                        << ".\n";
+                };
+
             const float loss =
                 model.train(
                     text,
                     options.epochs,
-                    options.learning_rate);
+                    options.learning_rate,
+                    checkpoint_progress);
 
             std::cout
                 << "Training complete. Mean loss: "

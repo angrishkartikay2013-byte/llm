@@ -491,7 +491,10 @@ ULTRONModel& ULTRONModel::operator=(
 float ULTRONModel::train(
     const std::string& text,
     std::size_t epochs,
-    float learning_rate) {
+    float learning_rate,
+    const std::function<void(
+        std::size_t,
+        float)>& progress) {
 
     if (text.empty() ||
         epochs == 0 ||
@@ -859,6 +862,12 @@ float ULTRONModel::train(
                 << " loss="
                 << last_epoch_loss
                 << '\n';
+        }
+
+        if (progress) {
+            progress(
+                epoch + 1,
+                last_epoch_loss);
         }
     }
 

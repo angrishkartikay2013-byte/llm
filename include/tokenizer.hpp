@@ -21,8 +21,10 @@ public:
 
 private:
     static std::vector<std::string> split(
-        const std::string& text);
+        const std::string& text,
+        bool preserve_layout);
 
     std::unordered_map<std::string, int> token_to_id_;
     std::vector<std::string> id_to_token_;
+    bool preserve_layout_ = true;
 };

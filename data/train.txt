@@ -1108,13 +1108,94 @@ Stories show how language connects across many sentences.
 Dialogue shows how people respond to one another.
 Descriptions show how words can create a scene.
 
-ULTRON should learn how words work together.
-ULTRON should learn that the same word can appear in many contexts.
-ULTRON should learn common sentence structures.
-ULTRON should learn questions and responses.
-ULTRON should learn how tense changes meaning.
-ULTRON should learn how punctuation separates ideas.
-ULTRON should learn how paragraphs develop a topic.
-ULTRON should learn how conversations move from one thought to another.
-ULTRON should learn from many different examples rather than one repeated sentence.
+WRITING, SPACES, AND PUNCTUATION
+
+A space is a blank area that separates words, sentences, and other written elements.
+Spaces make word boundaries easier to see and can prevent ambiguity between different words.
+In ordinary English writing, words are normally separated by spaces.
+Punctuation marks help readers interpret the structure, pacing, and meaning of written language.
+A period usually marks the end of a statement.
+A question mark usually marks a direct question.
+An exclamation mark can express strong feeling or emphasis.
+A comma can separate items in a list or separate parts of a sentence.
+A colon can introduce an explanation, list, or example.
+A semicolon can connect closely related independent clauses.
+Parentheses can contain extra information inside a sentence.
+Quotation marks can show quoted speech or a quoted phrase.
+An apostrophe can show possession or represent omitted letters in a contraction.
+A hyphen can connect parts of a compound expression.
+Punctuation conventions can differ between languages, countries, and writing styles.
+
+Spacing and punctuation work together.
+There is usually no space before a comma, period, question mark, or exclamation mark in standard English.
+There is normally a space after those marks when another word follows.
+There is usually no space immediately inside parentheses.
+An opening parenthesis often follows a space when it follows a word.
+A quotation can begin after a space, while punctuation can appear next to quotation marks according to the style being used.
+A sentence should not become one unbroken string of words.
+The spaces between words are part of readable written language.
+
+Examples of spaces and punctuation:
+Hello, how are you?
+I am fine. Thank you.
+What are you doing?
+That is great!
+We bought apples, bananas, and oranges.
+She said, "I am ready."
+The answer is simple: practice.
+The train was late; we waited.
+He opened the box (carefully) and looked inside.
+I cannot go because I am busy.
+I am learning how to write clearly.
+
+New lines also carry structure in written language.
+A paragraph contains related sentences grouped around an idea.
+A new paragraph can signal a change in topic, place, time, speaker, or emphasis.
+Dialogue is often easier to read when speaker turns are separated clearly.
+A model should learn that spaces and line breaks are not meaningless noise.
+They help represent the structure of language.
+
+CONVERSATIONAL WRITING PRACTICE
+
+USER: Hey, how are you?
+ULTRON: I'm doing pretty well. How about you?
+USER: I'm good, just a little tired.
+ULTRON: Sounds like you've had a long day.
+USER: Yeah, I had a lot to do.
+ULTRON: I hope you get some time to relax tonight.
+
+USER: What are you doing?
+ULTRON: I'm reading a book right now.
+USER: What kind of book?
+ULTRON: It's a mystery story.
+USER: Is it good?
+ULTRON: Yeah, I'm enjoying it so far.
+
+USER: Can you help me?
+ULTRON: Sure. What do you need?
+USER: I don't understand this question.
+ULTRON: Let's look at it together.
+USER: Okay, that makes sense.
+ULTRON: Great.
+
+USER: Did you sleep well?
+ULTRON: Yes, I slept pretty well.
+USER: What are you doing today?
+ULTRON: I'm planning to study and finish a few tasks.
+USER: That sounds productive.
+ULTRON: I'm going to try my best.
+
+USER: I can't decide what to eat.
+ULTRON: What are you in the mood for?
+USER: Something quick.
+ULTRON: You could make pasta or a sandwich.
+USER: Pasta sounds good.
+ULTRON: Then pasta it is.
+
+USER: Wait, I think I made a mistake.
+ULTRON: That's okay. What happened?
+USER: I used the wrong number.
+ULTRON: Let's check the calculation again.
+USER: You're right. I see the problem now.
+ULTRON: No worries. Mistakes can help you find what needs fixing.
 
