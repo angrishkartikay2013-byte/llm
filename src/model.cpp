@@ -427,8 +427,7 @@ public:
         const std::size_t user_marker =
             question.rfind("user:");
 
-        if (user_marker != std::string::npos) {
-            question =
+        if (user_marker != std::string::npos) {            question =
                 question.substr(user_marker + 5);
         }
 
@@ -616,9 +615,28 @@ float ULTRONModel::train(
         double epoch_loss = 0.0;
         std::size_t epoch_samples = 0;
 
+        const std::size_t total_windows =
+            tokens.size() <= 2
+                ? 0
+                : ((tokens.size() - 2) / window_step) + 1;
+
+        std::size_t window_number = 0;
+
+        std::cout
+            << "[train] starting epoch "
+            << (epoch + 1)
+            << "/"
+            << epochs
+            << " ("
+            << total_windows
+            << " windows)"
+            << '\n';
+
         for (std::size_t window_start = 0;
              window_start < tokens.size();
              window_start += window_step) {
+
+            ++window_number;
 
             const std::size_t window_end =
                 std::min(
@@ -647,8 +665,7 @@ float ULTRONModel::train(
                     context_start);
 
             const auto first_hidden_states =
-                impl_->transformer.forward(states);
-            const auto hidden_states =
+                impl_->transformer.forward(states);            const auto hidden_states =
                 impl_->transformer2.forward(first_hidden_states);
 
             if (hidden_states.size() < 2) {
@@ -847,8 +864,7 @@ float ULTRONModel::train(
                 output_parameters,
                 output_gradients);
 
-            impl_->transformer_optimizer->step(
-                transformer_parameters,
+            impl_->transformer_optimizer->step(                transformer_parameters,
                 transformer_gradients_flat);
 
             impl_->transformer2_optimizer->step(
@@ -879,6 +895,43 @@ float ULTRONModel::train(
                         static_cast<std::ptrdiff_t>(
                             (token + 1) * kEmbeddingSize),
                     impl_->output_weights[token].begin());
+            }
+
+            if (window_number == 1 ||
+                window_number % 4 == 0 ||
+                window_end == tokens.size()) {
+
+                const double running_loss =
+                    epoch_samples == 0
+                        ? 0.0
+                        : epoch_loss /
+                          static_cast<double>(epoch_samples);
+
+                const double percent =
+                    total_windows == 0
+                        ? 100.0
+                        : (100.0 *
+                           static_cast<double>(window_number) /
+                           static_cast<double>(total_windows));
+
+                std::cout
+                    << "[train] epoch "
+                    << (epoch + 1)
+                    << "/"
+                    << epochs
+                    << " | window "
+                    << window_number
+                    << "/"
+                    << total_windows
+                    << " | "
+                    << static_cast<int>(percent)
+                    << "% | samples "
+                    << epoch_samples
+                    << " | loss "
+                    << running_loss
+                    << '\n';
+
+                std::cout.flush();
             }
 
             if (window_end == tokens.size()) {
@@ -1097,8 +1150,7 @@ std::string ULTRONModel::generate(
         candidate_logits.reserve(
             candidates.size());
 
-        for (std::size_t candidate :
-             candidates) {
+        for (std::size_t candidate :             candidates) {
             candidate_logits.push_back(
                 scaled_logits[candidate]);
         }
@@ -1397,64 +1449,3 @@ bool ULTRONModel::load_checkpoint(
 
                 return {true, std::move(optimizer)};
             };
-
-        auto loaded_output =
-            load_optimizer(
-                weights.size() * kEmbeddingSize);
-
-        auto loaded_transformer =
-            load_optimizer(
-                transformer.parameter_count());
-
-        auto loaded_transformer2 =
-            load_optimizer(
-                transformer2.parameter_count());
-
-        auto loaded_embedding =
-            load_optimizer(
-                embedding.parameter_count());
-
-        if (!loaded_output.valid ||
-            !loaded_transformer.valid ||
-            !loaded_transformer2.valid ||
-            !loaded_embedding.valid) {
-            return false;
-        }
-
-        output_optimizer =
-            std::move(loaded_output.optimizer);
-
-        transformer_optimizer =
-            std::move(loaded_transformer.optimizer);
-
-        transformer2_optimizer =
-            std::move(loaded_transformer2.optimizer);
-
-        embedding_optimizer =
-            std::move(loaded_embedding.optimizer);
-    }
-
-    impl_->tokenizer = std::move(tokenizer);
-    impl_->embedding = std::move(embedding);
-
-    impl_->transformer =
-        std::move(transformer);
-    impl_->transformer2 =
-        std::move(transformer2);
-
-    impl_->output_weights =
-        std::move(weights);
-    impl_->learned_answers =
-        std::move(learned_answers);
-
-    impl_->output_optimizer =
-        std::move(output_optimizer);
-    impl_->transformer_optimizer =
-        std::move(transformer_optimizer);
-    impl_->transformer2_optimizer =
-        std::move(transformer2_optimizer);
-    impl_->embedding_optimizer =
-        std::move(embedding_optimizer);
-
-    return true;
-}
