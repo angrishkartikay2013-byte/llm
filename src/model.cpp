@@ -21,6 +21,7 @@ namespace {
 constexpr std::size_t kEmbeddingSize = 32;
 constexpr std::size_t kHeads = 4;
 constexpr std::size_t kFeedForwardSize = 128;
+constexpr std::size_t kTransformerLayers = 2;
 constexpr std::size_t kMaxSequenceLength = 128;
 
 const char* starter_corpus =
@@ -89,7 +90,8 @@ public:
     Impl()
         : tokenizer(),
           embedding(1, kEmbeddingSize),
-          transformer(kEmbeddingSize, kHeads, kFeedForwardSize),
+          transformer(kEmbeddingSize, kHeads, kFeedForwardSize, 11),
+          transformer2(kEmbeddingSize, kHeads, kFeedForwardSize, 101),
           output_weights(),
           positional(
               kMaxSequenceLength,
@@ -255,7 +257,11 @@ public:
             return {};
         }
 
-        return transformer.forward(states);
+        auto hidden = transformer.forward(states);
+        for (std::size_t layer = 1; layer < kTransformerLayers; ++layer) {
+            hidden = transformer2.forward(hidden);
+        }
+        return hidden;
     }
 
     std::vector<float> logits(
@@ -285,6 +291,7 @@ public:
     Tokenizer tokenizer;
     Embedding embedding;
     TransformerBlock transformer;
+    TransformerBlock transformer2;
     std::vector<std::vector<float>> output_weights;
     std::vector<std::vector<float>> positional;
 };
@@ -337,6 +344,10 @@ float ULTRONModel::train(
     impl_->transformer.get_parameters(
         transformer_parameters);
 
+    std::vector<float> transformer2_parameters;
+    impl_->transformer2.get_parameters(
+        transformer2_parameters);
+
     std::vector<float> embedding_parameters;
     impl_->embedding.get_parameters(
         embedding_parameters);
@@ -347,6 +358,10 @@ float ULTRONModel::train(
 
     AdamOptimizer transformer_optimizer(
         transformer_parameters.size(),
+        learning_rate * 0.5f);
+
+    AdamOptimizer transformer2_optimizer(
+        transformer2_parameters.size(),
         learning_rate * 0.5f);
 
     AdamOptimizer embedding_optimizer(
@@ -400,8 +415,10 @@ float ULTRONModel::train(
                     window_tokens,
                     context_start);
 
-            const auto hidden_states =
+            const auto first_hidden_states =
                 impl_->transformer.forward(states);
+            const auto hidden_states =
+                impl_->transformer2.forward(first_hidden_states);
 
             if (hidden_states.size() < 2) {
                 continue;
@@ -511,12 +528,26 @@ float ULTRONModel::train(
                     inverse_samples);
             }
 
+            TransformerBlock::Gradients transformer2_gradients;
+            std::vector<std::vector<float>> grad_first_hidden;
+
+            impl_->transformer2.backward(
+                first_hidden_states,
+                grad_hidden,
+                grad_first_hidden,
+                transformer2_gradients);
+
+            std::vector<float> transformer2_gradients_flat;
+            impl_->transformer2.flatten_gradients(
+                transformer2_gradients,
+                transformer2_gradients_flat);
+
             TransformerBlock::Gradients transformer_gradients;
             std::vector<std::vector<float>> grad_states;
 
             impl_->transformer.backward(
                 states,
-                grad_hidden,
+                grad_first_hidden,
                 grad_states,
                 transformer_gradients);
 
@@ -571,6 +602,10 @@ float ULTRONModel::train(
                 5.0f);
 
             clip_gradients(
+                transformer2_gradients_flat,
+                5.0f);
+
+            clip_gradients(
                 embedding_gradients,
                 5.0f);
 
@@ -582,12 +617,18 @@ float ULTRONModel::train(
                 transformer_parameters,
                 transformer_gradients_flat);
 
+            transformer2_optimizer.step(
+                transformer2_parameters,
+                transformer2_gradients_flat);
+
             embedding_optimizer.step(
                 embedding_parameters,
                 embedding_gradients);
 
             impl_->transformer.set_parameters(
                 transformer_parameters);
+            impl_->transformer2.set_parameters(
+                transformer2_parameters);
 
             impl_->embedding.set_parameters(
                 embedding_parameters);
@@ -855,10 +896,11 @@ bool ULTRONModel::save_checkpoint(
     const char magic[] = "ULTRON1";
     output.write(magic, sizeof(magic) - 1);
 
-    if (!write_u64(output, 2) ||
+    if (!write_u64(output, 3) ||
         !impl_->tokenizer.save(output) ||
         !impl_->embedding.save(output) ||
-        !impl_->transformer.save(output)) {
+        !impl_->transformer.save(output) ||
+        !impl_->transformer2.save(output)) {
         return false;
     }
 
@@ -911,7 +953,7 @@ bool ULTRONModel::load_checkpoint(
     std::uint64_t version = 0;
 
     if (!read_u64(input, version) ||
-        (version != 1 && version != 2)) {
+        (version != 1 && version != 2 && version != 3)) {
         return false;
     }
 
@@ -933,10 +975,22 @@ bool ULTRONModel::load_checkpoint(
     TransformerBlock transformer(
         kEmbeddingSize,
         kHeads,
-        kFeedForwardSize);
+        kFeedForwardSize,
+        11);
+
+    TransformerBlock transformer2(
+        kEmbeddingSize,
+        kHeads,
+        kFeedForwardSize,
+        101);
 
     if (version >= 2 &&
         !transformer.load(input)) {
+        return false;
+    }
+
+    if (version >= 3 &&
+        !transformer2.load(input)) {
         return false;
     }
 
@@ -971,6 +1025,11 @@ bool ULTRONModel::load_checkpoint(
     if (version >= 2) {
         impl_->transformer =
             std::move(transformer);
+    }
+
+    if (version >= 3) {
+        impl_->transformer2 =
+            std::move(transformer2);
     }
 
     impl_->output_weights =
