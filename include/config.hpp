@@ -7,7 +7,7 @@ struct ModelConfig {
     std::size_t embedding_size = 32;
     std::size_t num_heads = 4;
     std::size_t feed_forward_size = 128;
-    std::size_t max_sequence_length = 128;
+    std::size_t max_sequence_length = 256;
     std::size_t epochs = 1;
     float learning_rate = 0.001f;
     float temperature = 0.8f;
