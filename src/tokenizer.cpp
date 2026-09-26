@@ -301,7 +301,6 @@ void Tokenizer::learn_bpe(
             break;
         }
 
-        std::uint64_t best_pair = 0;
         std::size_t best_count = 0;
         int best_left = std::numeric_limits<int>::max();
         int best_right = std::numeric_limits<int>::max();
@@ -343,7 +342,6 @@ void Tokenizer::learn_bpe(
                   (left == best_left &&
                    right < best_right)))) {
 
-                best_pair = entry.first;
                 best_count = entry.second;
                 best_left = left;
                 best_right = right;
