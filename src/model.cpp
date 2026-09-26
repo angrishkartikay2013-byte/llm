@@ -24,14 +24,6 @@ constexpr std::size_t kFeedForwardSize = 128;
 constexpr std::size_t kTransformerLayers = 2;
 constexpr std::size_t kMaxSequenceLength = 128;
 
-const char* starter_corpus =
-    "hello i am ultron "
-    "ultron is a language model "
-    "ultron learns language from data "
-    "this is a model built from scratch "
-    "language models predict the next token "
-    "transformers use attention to process context";
-
 bool write_u64(std::ostream& output, std::uint64_t value) {
     output.write(reinterpret_cast<const char*>(&value), sizeof(value));
     return static_cast<bool>(output);
@@ -98,7 +90,6 @@ public:
               std::vector<float>(
                   kEmbeddingSize,
                   0.0f)) {
-        tokenizer.train(starter_corpus);
         rebuild_trainable_parameters();
         initialize_positions();
     }
@@ -896,7 +887,7 @@ bool ULTRONModel::save_checkpoint(
     const char magic[] = "ULTRON1";
     output.write(magic, sizeof(magic) - 1);
 
-    if (!write_u64(output, 3) ||
+    if (!write_u64(output, 4) ||
         !impl_->tokenizer.save(output) ||
         !impl_->embedding.save(output) ||
         !impl_->transformer.save(output) ||
@@ -953,7 +944,7 @@ bool ULTRONModel::load_checkpoint(
     std::uint64_t version = 0;
 
     if (!read_u64(input, version) ||
-        (version != 1 && version != 2 && version != 3)) {
+        version != 4) {
         return false;
     }
 
@@ -984,13 +975,11 @@ bool ULTRONModel::load_checkpoint(
         kFeedForwardSize,
         101);
 
-    if (version >= 2 &&
-        !transformer.load(input)) {
+    if (!transformer.load(input)) {
         return false;
     }
 
-    if (version >= 3 &&
-        !transformer2.load(input)) {
+    if (!transformer2.load(input)) {
         return false;
     }
 
@@ -1022,15 +1011,10 @@ bool ULTRONModel::load_checkpoint(
     impl_->tokenizer = std::move(tokenizer);
     impl_->embedding = std::move(embedding);
 
-    if (version >= 2) {
-        impl_->transformer =
-            std::move(transformer);
-    }
-
-    if (version >= 3) {
-        impl_->transformer2 =
-            std::move(transformer2);
-    }
+    impl_->transformer =
+        std::move(transformer);
+    impl_->transformer2 =
+        std::move(transformer2);
 
     impl_->output_weights =
         std::move(weights);
