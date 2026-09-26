@@ -4,8 +4,7 @@ param(
     [int]$SentencesPerBatch = 80,
     [int]$Epochs = 1,
     [double]$LearningRate = 0.003,
-    [string]$Output = "data/external/ollama_distill.txt",
-    [switch]$StopOllama
+    [string]$Output = "data/external/ollama_distill.txt"
 )
 
 $ErrorActionPreference = "Stop"
@@ -124,10 +123,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "ULTRON training failed with exit code $LASTEXITCODE."
 }
 
-if ($StopOllama) {
-    Write-Host "Unloading Ollama model..."
-    & $ollamaExe stop $Model | Out-Null
-}
+Write-Host "Unloading Ollama model..."
+& $ollamaExe stop $Model | Out-Null
 
 Write-Host "Done. ULTRON now has a local Ollama-distilled training corpus."
 Write-Host "Ollama was used only through localhost and each generation requested keep_alive=0."
