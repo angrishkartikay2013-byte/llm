@@ -26,7 +26,6 @@ constexpr std::size_t kHeads = 4;
 constexpr std::size_t kFeedForwardSize = 128;
 constexpr std::size_t kTransformerLayers = 2;
 constexpr std::size_t kMaxSequenceLength = 256;
-constexpr std::size_t kDefaultTrainingSequenceLength = 128;
 
 struct TrainingSpeed {
     std::size_t sequence_length = 128;
