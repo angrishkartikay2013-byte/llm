@@ -37,7 +37,7 @@ std::string extract_json_string(
     const std::string& key) {
 
     const std::string marker =
-        """ + key + "":"";
+        "\"" + key + "\":\"";
 
     const std::size_t start =
         json.find(marker);
@@ -68,6 +68,12 @@ std::string extract_json_string(
                 break;
             case 't':
                 result += '\t';
+                break;
+            case '\\':
+                result += '\\';
+                break;
+            case '"':
+                result += '"';
                 break;
             default:
                 result += character;
@@ -108,9 +114,9 @@ std::string DictionaryClient::lookup(
 
     const std::string command =
         "curl.exe -L -s --fail "
-        ""https://api.dictionaryapi.dev/api/v2/entries/en/" +
+        "\"https://api.dictionaryapi.dev/api/v2/entries/en/" +
         encoded +
-        """;
+        "\"";
 
     FILE* pipe =
         _popen(command.c_str(), "r");
