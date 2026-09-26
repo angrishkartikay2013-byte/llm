@@ -18,6 +18,7 @@
 #include <vector>
 #include <unordered_map>
 #include <cctype>
+#include <thread>
 
 namespace {
 constexpr std::size_t kEmbeddingSize = 32;
@@ -25,7 +26,7 @@ constexpr std::size_t kHeads = 4;
 constexpr std::size_t kFeedForwardSize = 128;
 constexpr std::size_t kTransformerLayers = 2;
 constexpr std::size_t kMaxSequenceLength = 256;
-constexpr std::size_t kTrainingSequenceLength = 64;
+constexpr std::size_t kTrainingSequenceLength = 128;
 
 bool write_u64(std::ostream& output, std::uint64_t value) {
     output.write(reinterpret_cast<const char*>(&value), sizeof(value));
@@ -685,80 +686,174 @@ float ULTRONModel::train(
                 output_parameters.size(),
                 0.0f);
 
+            const std::size_t positions = hidden_states.size() - 1;
+
+            // The output projection + softmax is independent for each
+            // sequence position. Compute positions in parallel, while giving
+            // each worker its own output-gradient buffer so there are no
+            // races or locks in the hot loop. The final reduction is
+            // mathematically equivalent up to normal floating-point order.
+            const unsigned int detected_threads =
+                std::thread::hardware_concurrency();
+
+            const std::size_t thread_count =
+                std::max<std::size_t>(
+                    1,
+                    std::min<std::size_t>(
+                        positions,
+                        detected_threads == 0
+                            ? 4
+                            : std::min<unsigned int>(
+                                detected_threads,
+                                4)));
+
+            std::vector<std::vector<float>> thread_output_gradients(
+                thread_count,
+                std::vector<float>(
+                    output_parameters.size(),
+                    0.0f));
+
+            std::vector<double> thread_losses(
+                thread_count,
+                0.0);
+
+            std::vector<std::size_t> thread_samples(
+                thread_count,
+                0);
+
+            const auto output_worker =
+                [&](std::size_t worker_index) {
+
+                    const std::size_t begin =
+                        (positions * worker_index) /
+                        thread_count;
+
+                    const std::size_t end =
+                        (positions * (worker_index + 1)) /
+                        thread_count;
+
+                    auto& local_output_gradients =
+                        thread_output_gradients[worker_index];
+
+                    for (std::size_t position = begin;
+                         position < end;
+                         ++position) {
+
+                        const auto& hidden =
+                            hidden_states[position];
+
+                        std::vector<float> current_logits(
+                            impl_->output_weights.size(),
+                            0.0f);
+
+                        for (std::size_t token = 0;
+                             token < impl_->output_weights.size();
+                             ++token) {
+
+                            float dot = 0.0f;
+
+                            const std::size_t base =
+                                token * kEmbeddingSize;
+
+                            for (std::size_t dimension = 0;
+                                 dimension < kEmbeddingSize;
+                                 ++dimension) {
+
+                                dot +=
+                                    hidden[dimension] *
+                                    output_parameters[
+                                        base + dimension];
+                            }
+
+                            current_logits[token] = dot;
+                        }
+
+                        const auto probabilities =
+                            ultron_softmax(
+                                current_logits);
+
+                        const std::size_t target =
+                            static_cast<std::size_t>(
+                                std::max(
+                                    window_tokens[position + 1],
+                                    0));
+
+                        thread_losses[worker_index] +=
+                            ultron_cross_entropy_loss(
+                                probabilities,
+                                target);
+
+                        ++thread_samples[worker_index];
+
+                        for (std::size_t token = 0;
+                             token < probabilities.size();
+                             ++token) {
+
+                            const float error =
+                                probabilities[token] -
+                                (token == target ? 1.0f : 0.0f);
+
+                            const std::size_t base =
+                                token * kEmbeddingSize;
+
+                            for (std::size_t dimension = 0;
+                                 dimension < kEmbeddingSize;
+                                 ++dimension) {
+
+                                const std::size_t parameter =
+                                    base + dimension;
+
+                                local_output_gradients[parameter] +=
+                                    error *
+                                    hidden[dimension];
+
+                                grad_hidden[position][dimension] +=
+                                    error *
+                                    output_parameters[
+                                        parameter];
+                            }
+                        }
+                    }
+                };
+
+            std::vector<std::thread> workers;
+            workers.reserve(thread_count);
+
+            for (std::size_t worker = 0;
+                 worker < thread_count;
+                 ++worker) {
+
+                workers.emplace_back(
+                    output_worker,
+                    worker);
+            }
+
+            for (auto& worker : workers) {
+                worker.join();
+            }
+
             std::size_t window_samples = 0;
 
-            for (std::size_t position = 0;
-                 position + 1 < hidden_states.size();
-                 ++position) {
-
-                const auto& hidden =
-                    hidden_states[position];
-
-                std::vector<float> current_logits(
-                    impl_->output_weights.size(),
-                    0.0f);
-
-                for (std::size_t token = 0;
-                     token < impl_->output_weights.size();
-                     ++token) {
-
-                    for (std::size_t dimension = 0;
-                         dimension < kEmbeddingSize;
-                         ++dimension) {
-
-                        current_logits[token] +=
-                            hidden[dimension] *
-                            output_parameters[
-                                token * kEmbeddingSize +
-                                dimension];
-                    }
-                }
-
-                const auto probabilities =
-                    ultron_softmax(
-                        current_logits);
-
-                const std::size_t target =
-                    static_cast<std::size_t>(
-                        std::max(
-                            window_tokens[position + 1],
-                            0));
+            for (std::size_t worker = 0;
+                 worker < thread_count;
+                 ++worker) {
 
                 epoch_loss +=
-                    ultron_cross_entropy_loss(
-                        probabilities,
-                        target);
+                    thread_losses[worker];
 
-                ++epoch_samples;
-                ++window_samples;
+                window_samples +=
+                    thread_samples[worker];
 
-                for (std::size_t token = 0;
-                     token < probabilities.size();
-                     ++token) {
+                for (std::size_t parameter = 0;
+                     parameter < output_gradients.size();
+                     ++parameter) {
 
-                    const float error =
-                        probabilities[token] -
-                        (token == target ? 1.0f : 0.0f);
-
-                    for (std::size_t dimension = 0;
-                         dimension < kEmbeddingSize;
-                         ++dimension) {
-
-                        const std::size_t parameter =
-                            token * kEmbeddingSize +
-                            dimension;
-
-                        output_gradients[parameter] +=
-                            error *
-                            hidden[dimension];
-
-                        grad_hidden[position][dimension] +=
-                            error *
-                            output_parameters[
-                                parameter];
-                    }
+                    output_gradients[parameter] +=
+                        thread_output_gradients[worker][parameter];
                 }
             }
+
+            epoch_samples += window_samples;
 
             if (window_samples == 0) {
                 continue;
