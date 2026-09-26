@@ -41,21 +41,6 @@ bool read_u64(std::istream& input, std::uint64_t& value) {
     return static_cast<bool>(input);
 }
 
-void add_scaled(
-    std::vector<float>& target,
-    const std::vector<float>& source,
-    float scale) {
-
-    if (target.size() != source.size()) {
-        throw std::invalid_argument(
-            "Model gradient shape mismatch");
-    }
-
-    for (std::size_t i = 0; i < target.size(); ++i) {
-        target[i] += source[i] * scale;
-    }
-}
-
 void scale_in_place(
     std::vector<float>& values,
     float scale) {

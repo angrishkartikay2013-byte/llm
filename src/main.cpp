@@ -1,6 +1,7 @@
 #include "conversation.hpp"
 #include "dictionary.hpp"
 #include "model.hpp"
+#include "self_test.hpp"
 
 #include <cstddef>
 #include <cstdlib>
@@ -24,6 +25,8 @@ struct Options {
     float temperature = 0.8f;
     std::size_t top_k = 8;
     unsigned int seed = 42;
+    bool self_test = false;
+    bool online_learning = true;
 };
 
 std::string value_after(
@@ -77,6 +80,10 @@ Options parse(int argc, char** argv) {
             options.seed = static_cast<unsigned int>(
                 std::stoul(
                     value_after(i, argc, argv, "--seed")));
+        } else if (argument == "--self-test") {
+            options.self_test = true;
+        } else if (argument == "--no-online-learning") {
+            options.online_learning = false;
         } else if (
             argument == "--help" ||
             argument == "-h") {
@@ -87,7 +94,9 @@ Options parse(int argc, char** argv) {
                 << "--epochs N --lr RATE\n"
                 << "--load FILE --save FILE\n"
                 << "--max-tokens N --temperature T\n"
-                << "--top-k K --seed N\n";
+                << "--top-k K --seed N\n"
+                << "--self-test\n"
+                << "--no-online-learning\n";
 
             std::exit(0);
         } else {
@@ -147,6 +156,10 @@ int main(int argc, char** argv) {
     try {
         const Options options =
             parse(argc, argv);
+
+        if (options.self_test) {
+            return run_ultron_smoke_tests();
+        }
 
         ULTRONModel model;
         ConversationStore conversations;
