@@ -1,6 +1,6 @@
 # ULTRON LLM
 
-ULTRON is a CPU-oriented Large Language Model engine built from scratch in C++20. The current model uses a two-block causal Transformer and trains embeddings, both Transformer blocks, and the output projection end-to-end.
+ULTRON is a CPU-oriented Large Language Model engine built from scratch in C++20. The current model uses a two-block causal Transformer and trains embeddings, both Transformer blocks, and the output projection end-to-end. The tokenizer is a learned byte-level BPE tokenizer with ASCII case normalization, so unseen words do not automatically collapse to a single <unk> token.
 
 ## Build
 
@@ -75,4 +75,4 @@ Generation supports a clean inference mode that prevents generated responses fro
 
     .\\build\\ultron.exe --load models/ultron.bin --max-tokens 20 --no-online-learning
 
-Model checkpoints written by the current training path use checkpoint version 3 and include both Transformer blocks. Re-train a new checkpoint after pulling architecture changes rather than judging a newly built binary with an older one-block checkpoint.
+Model checkpoints written by the current training path use checkpoint version 4 and include the learned tokenizer merges plus both Transformer blocks. Re-train a new checkpoint after pulling tokenizer or architecture changes rather than judging a newly built binary with an older checkpoint.
