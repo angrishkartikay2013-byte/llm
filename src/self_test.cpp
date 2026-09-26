@@ -213,36 +213,11 @@ int run_ultron_smoke_tests() {
 
     // Critical regression test:
     // two uninterrupted epochs must match one epoch + checkpoint + one epoch.
-    ULTRONModel split_run;
-    split_run.train(
-        corpus,
-        1,
-        0.001f);
-
     const std::string checkpoint =
         "ultron_smoke_checkpoint.bin";
 
-    assert(split_run.save_checkpoint(checkpoint));
-
-    ULTRONModel resumed_run;
-    assert(resumed_run.load_checkpoint(checkpoint));
-
-    resumed_run.train(
-        corpus,
-        1,
-        0.001f);
-
-    const auto split_metrics =
-        resumed_run.evaluate(corpus);
-
-    assert_close(
-        continuous_metrics.mean_loss,
-        split_metrics.mean_loss,
-        0.5);
-
-    // A direct two-epoch run and a split run have different first one-epoch
-    // histories after the second tokenizer/lesson update, so use a dedicated
-    // matched pair below for the exact optimizer-continuation invariant.
+    // A direct two-epoch run and a split run must follow the same optimizer
+    // trajectory once the checkpoint contains tokenizer + weights + Adam state.
     ULTRONModel uninterrupted;
     uninterrupted.train(
         corpus,
@@ -306,7 +281,8 @@ int run_ultron_smoke_tests() {
 
     assert(restored_text == uninterrupted_text);
 
-    std::remove(checkpoint.c_str());
+    std::remove(
+        checkpoint.c_str());
     std::remove(
         continuation_checkpoint.c_str());
 
