@@ -1,6 +1,6 @@
 # ULTRON LLM
 
-ULTRON is a CPU-oriented Large Language Model engine built from scratch in C++20.
+ULTRON is a CPU-oriented Large Language Model engine built from scratch in C++20. The current model uses a two-block causal Transformer and trains embeddings, both Transformer blocks, and the output projection end-to-end.
 
 ## Build
 
@@ -12,7 +12,7 @@ Use:
 
 ## Train
 
-Train on the bundled local corpus:
+Train on the bundled local corpus. Training sweeps across the entire corpus in overlapping context windows, so long datasets are not truncated to only their final context:
 
     .\build\ultron.exe --train data/train.txt --epochs 5 --lr 0.003 --save models\ultron.bin
 
@@ -66,3 +66,13 @@ Run:
 The script talks only to Ollama on `http://localhost:11434`, writes the generated corpus to `data/external/ollama_distill.txt`, trains ULTRON, saves `models/ultron.bin`, and then unloads the model and stops the daemon if the script started it. The default bootstrap is deliberately small: one batch of 30 short sentences, suitable for a quick CPU experiment.
 
 This is knowledge distillation/data synthesis: Ollama is the temporary teacher, while ULTRON remains the standalone model after the bootstrap finishes.
+
+## Training architecture
+
+The training path performs full gradient backpropagation through the output projection, both Transformer blocks, causal multi-head attention, GELU, LayerNorm, residual paths, and token embeddings. Gradients are clipped before Adam updates. The smoke test also exercises the Transformer backward pass directly.
+
+Generation supports a clean inference mode that prevents generated responses from being fed back into online learning:
+
+    .\\build\\ultron.exe --load models/ultron.bin --max-tokens 20 --no-online-learning
+
+Model checkpoints written by the current training path use checkpoint version 3 and include both Transformer blocks. Re-train a new checkpoint after pulling architecture changes rather than judging a newly built binary with an older one-block checkpoint.
