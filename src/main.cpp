@@ -1,6 +1,7 @@
 #include "conversation.hpp"
 #include "dictionary.hpp"
 #include "model.hpp"
+#include "self_test.hpp"
 
 #include <cstddef>
 #include <cstdlib>
@@ -24,6 +25,7 @@ struct Options {
     float temperature = 0.8f;
     std::size_t top_k = 8;
     unsigned int seed = 42;
+    bool self_test = false;
 };
 
 std::string value_after(
@@ -77,6 +79,8 @@ Options parse(int argc, char** argv) {
             options.seed = static_cast<unsigned int>(
                 std::stoul(
                     value_after(i, argc, argv, "--seed")));
+        } else if (argument == "--self-test") {
+            options.self_test = true;
         } else if (
             argument == "--help" ||
             argument == "-h") {
@@ -87,7 +91,8 @@ Options parse(int argc, char** argv) {
                 << "--epochs N --lr RATE\n"
                 << "--load FILE --save FILE\n"
                 << "--max-tokens N --temperature T\n"
-                << "--top-k K --seed N\n";
+                << "--top-k K --seed N\n"
+                << "--self-test\n";
 
             std::exit(0);
         } else {
@@ -148,6 +153,10 @@ int main(int argc, char** argv) {
         const Options options =
             parse(argc, argv);
 
+        if (options.self_test) {
+            return run_ultron_smoke_tests();
+        }
+
         ULTRONModel model;
         ConversationStore conversations;
         DictionaryClient dictionary;
@@ -158,7 +167,7 @@ int main(int argc, char** argv) {
                 std::cerr
                     << "Failed to load checkpoint: "
                     << options.load_file
-                    << '\n';
+                    << '\\n';
                 return 1;
             }
 
@@ -184,7 +193,7 @@ int main(int argc, char** argv) {
             std::cout
                 << "Training complete. Mean loss: "
                 << loss
-                << '\n';
+                << '\\n';
 
             if (!options.save_file.empty()) {
                 if (!model.save_checkpoint(
@@ -192,7 +201,7 @@ int main(int argc, char** argv) {
                     std::cerr
                         << "Failed to save checkpoint: "
                         << options.save_file
-                        << '\n';
+                        << '\\n';
                     return 1;
                 }
 
@@ -209,16 +218,16 @@ int main(int argc, char** argv) {
             std::cout
                 << "Evaluation samples: "
                 << metrics.samples
-                << '\n'
+                << '\\n'
                 << "Mean loss: "
                 << metrics.mean_loss
-                << '\n'
+                << '\\n'
                 << "Perplexity: "
                 << metrics.perplexity
-                << '\n'
+                << '\\n'
                 << "Accuracy: "
                 << metrics.accuracy
-                << '\n';
+                << '\\n';
         }
 
         std::cout
@@ -283,7 +292,7 @@ int main(int argc, char** argv) {
                 std::cout
                     << "ULTRON learned. loss="
                     << loss
-                    << '\n';
+                    << '\\n';
                 continue;
             }
 
@@ -303,7 +312,7 @@ int main(int argc, char** argv) {
                     std::cout
                         << "ULTRON: "
                         << definition
-                        << '\n';
+                        << '\\n';
                 }
 
                 continue;
@@ -344,7 +353,7 @@ int main(int argc, char** argv) {
             std::cout
                 << "ULTRON: "
                 << response
-                << '\n';
+                << '\\n';
 
             // Persist the exchange and perform a small online update.
             conversations.append(
@@ -369,7 +378,7 @@ int main(int argc, char** argv) {
         std::cerr
             << "ULTRON error: "
             << error.what()
-            << '\n';
+            << '\\n';
 
         return 1;
     }
