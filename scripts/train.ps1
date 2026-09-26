@@ -5,11 +5,25 @@ param(
     [string]$Checkpoint = "models/ultron_bpe.bin",
     [string]$ValidationData = "data/validation.txt",
     [int]$SaveEvery = 10,
+    [int]$Speed = 0,
     [switch]$ExternalCorpus,
     [switch]$Fresh
 )
 
 $ErrorActionPreference = "Stop"
+
+if (!$PSBoundParameters.ContainsKey("Speed")) {
+    $speedText = Read-Host "Training speed 1-10 (1 = full training, 10 = fastest)"
+    if ([string]::IsNullOrWhiteSpace($speedText)) {
+        $Speed = 1
+    } elseif (-not [int]::TryParse($speedText, [ref]$Speed)) {
+        throw "Training speed must be an integer from 1 to 10."
+    }
+}
+
+if ($Speed -lt 1 -or $Speed -gt 10) {
+    throw "Training speed must be between 1 and 10."
+}
 
 cmake --build build --config Release
 
@@ -74,6 +88,7 @@ $arguments = @(
     "--lr", $LearningRate,
     "--save", $Checkpoint,
     "--save-every", $SaveEvery,
+    "--speed", $Speed,
     "--non-interactive"
 )
 
@@ -91,7 +106,7 @@ if ((Test-Path $checkpointPath) -and !$Fresh) {
 Write-Host ""
 Write-Host "============================================================"
 Write-Host " ULTRON TRAINING STARTED"
-Write-Host " Epochs: $Epochs | Learning rate: $LearningRate"
+Write-Host " Epochs: $Epochs | Learning rate: $LearningRate | Speed: $Speed/10"
 Write-Host " Checkpoint: $Checkpoint"
 Write-Host " Watch for [train] messages below."
 Write-Host "============================================================"
