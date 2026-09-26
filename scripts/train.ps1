@@ -1,6 +1,6 @@
 param(
     [string]$Data = "data/train.txt",
-    [int]$Epochs = 5,
+    [int]$Epochs = 20,
     [double]$LearningRate = 0.001,
     [string]$Checkpoint = "models/ultron_bpe.bin",
     [string]$ValidationData = "data/validation.txt",
