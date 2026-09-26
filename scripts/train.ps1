@@ -12,6 +12,16 @@ $ErrorActionPreference = "Stop"
 
 cmake --build build --config Release
 
+if ($LASTEXITCODE -ne 0) {
+    throw "ULTRON build failed with exit code $LASTEXITCODE."
+}
+
+ctest --test-dir build --output-on-failure
+
+if ($LASTEXITCODE -ne 0) {
+    throw "ULTRON smoke tests failed with exit code $LASTEXITCODE. Training was not started."
+}
+
 $exe = "build/Release/ultron.exe"
 
 if ($ExternalCorpus) {
