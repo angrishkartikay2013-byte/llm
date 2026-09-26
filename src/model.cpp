@@ -696,16 +696,21 @@ float ULTRONModel::train(
             const unsigned int detected_threads =
                 std::thread::hardware_concurrency();
 
+            // ULTRON's hot output stage is CPU-bound and independent
+            // across positions. Use the available hardware threads instead
+            // of artificially capping the work at four threads.
+            const std::size_t available_threads =
+                detected_threads == 0
+                    ? 1
+                    : static_cast<std::size_t>(
+                        detected_threads);
+
             const std::size_t thread_count =
                 std::max<std::size_t>(
                     1,
                     std::min<std::size_t>(
                         positions,
-                        detected_threads == 0
-                            ? 4
-                            : std::min<unsigned int>(
-                                detected_threads,
-                                4)));
+                        available_threads));
 
             std::vector<std::vector<float>> thread_output_gradients(
                 thread_count,
