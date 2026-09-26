@@ -45,5 +45,6 @@ private:
     // New checkpoints use byte-level BPE. Legacy checkpoints keep the old
     // word-tokenizer mode so they remain readable.
     bool bpe_mode_ = true;
+    bool bpe_trained_ = false;
     bool legacy_preserve_layout_ = true;
 };
