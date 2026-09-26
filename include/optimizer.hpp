@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <iosfwd>
 #include <vector>
 
 class AdamOptimizer {
@@ -15,6 +16,15 @@ public:
     void step(
         std::vector<float>& weights,
         const std::vector<float>& gradients);
+
+    void set_learning_rate(float learning_rate);
+
+    float learning_rate() const;
+    std::size_t parameter_count() const;
+    std::size_t step_count() const;
+
+    bool save(std::ostream& output) const;
+    bool load(std::istream& input);
 
 private:
     float learning_rate_;
