@@ -1246,9 +1246,9 @@ std::string ULTRONModel::generate(
         [](unsigned char character) {
             return
                 character == ' ' ||
-                character == '\\t' ||
-                character == '\\n' ||
-                character == '\\r';
+                character == '\t' ||
+                character == '\n' ||
+                character == '\r';
         };
 
     const auto is_punctuation_character =
@@ -1267,10 +1267,10 @@ std::string ULTRONModel::generate(
                 case '{':
                 case '}':
                 case '"':
-                case '\\'':
+                case '\'' :
                 case '-':
                 case '/':
-                case '\\\\':
+                case '\'' :
                 case '+':
                 case '=':
                 case '*':
@@ -1718,10 +1718,10 @@ std::string ULTRONModel::generate(
         generated_text += piece;
 
         // Stop when the model starts writing the next dialogue turn.
-        if (generated_text.find("\\nUSER:") != std::string::npos ||
-            generated_text.find("\\nQuestion:") != std::string::npos ||
-            generated_text.find("\\nAnswer:") != std::string::npos ||
-            generated_text.find("\\nULTRON:") != std::string::npos) {
+        if (generated_text.find("\nUSER:") != std::string::npos ||
+            generated_text.find("\nQuestion:") != std::string::npos ||
+            generated_text.find("\nAnswer:") != std::string::npos ||
+            generated_text.find("\nULTRON:") != std::string::npos) {
             break;
         }
 
@@ -1737,10 +1737,10 @@ std::string ULTRONModel::generate(
     }
 
     const std::vector<std::string> stop_markers = {
-        "\\nUSER:",
-        "\\nQuestion:",
-        "\\nAnswer:",
-        "\\nULTRON:"
+        "\nUSER:",
+        "\nQuestion:",
+        "\nAnswer:",
+        "\nULTRON:"
     };
 
     std::size_t cut = std::string::npos;
