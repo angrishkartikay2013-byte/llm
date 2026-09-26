@@ -536,6 +536,11 @@ float ULTRONModel::train(
 
     impl_->learn_associations(text);
 
+    std::cout
+        << "[train] preparing tokenizer/BPE..."
+        << '\n';
+    std::cout.flush();
+
     const std::size_t old_vocab =
         impl_->tokenizer.vocabulary_size();
 
@@ -544,6 +549,12 @@ float ULTRONModel::train(
     if (impl_->tokenizer.vocabulary_size() != old_vocab) {
         impl_->rebuild_trainable_parameters();
     }
+
+    std::cout
+        << "[train] tokenizer ready | vocabulary "
+        << impl_->tokenizer.vocabulary_size()
+        << '\n';
+    std::cout.flush();
 
     const auto tokens =
         impl_->tokenizer.encode(text);
@@ -625,6 +636,15 @@ float ULTRONModel::train(
     const TrainingSpeed speed_config =
         training_speed(speed);
 
+    const unsigned int detected_training_threads =
+        std::thread::hardware_concurrency();
+
+    const std::size_t training_threads =
+        detected_training_threads == 0
+            ? 1
+            : static_cast<std::size_t>(
+                detected_training_threads);
+
     std::cout
         << "[train] speed "
         << std::clamp(speed, std::size_t(1), std::size_t(10))
@@ -634,6 +654,8 @@ float ULTRONModel::train(
         << speed_config.sample_stride
         << " | inference context remains "
         << kMaxSequenceLength
+        << " | CPU worker threads "
+        << training_threads
         << '\n';
 
     // Walk across the complete corpus instead of silently training only on
