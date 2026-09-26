@@ -427,7 +427,8 @@ public:
         const std::size_t user_marker =
             question.rfind("user:");
 
-        if (user_marker != std::string::npos) {            question =
+        if (user_marker != std::string::npos) {
+            question =
                 question.substr(user_marker + 5);
         }
 
@@ -631,6 +632,7 @@ float ULTRONModel::train(
             << total_windows
             << " windows)"
             << '\n';
+        std::cout.flush();
 
         for (std::size_t window_start = 0;
              window_start < tokens.size();
@@ -665,7 +667,8 @@ float ULTRONModel::train(
                     context_start);
 
             const auto first_hidden_states =
-                impl_->transformer.forward(states);            const auto hidden_states =
+                impl_->transformer.forward(states);
+            const auto hidden_states =
                 impl_->transformer2.forward(first_hidden_states);
 
             if (hidden_states.size() < 2) {
@@ -864,7 +867,8 @@ float ULTRONModel::train(
                 output_parameters,
                 output_gradients);
 
-            impl_->transformer_optimizer->step(                transformer_parameters,
+            impl_->transformer_optimizer->step(
+                transformer_parameters,
                 transformer_gradients_flat);
 
             impl_->transformer2_optimizer->step(
@@ -1150,7 +1154,8 @@ std::string ULTRONModel::generate(
         candidate_logits.reserve(
             candidates.size());
 
-        for (std::size_t candidate :             candidates) {
+        for (std::size_t candidate :
+             candidates) {
             candidate_logits.push_back(
                 scaled_logits[candidate]);
         }
