@@ -861,17 +861,11 @@ std::string ULTRONModel::generate(
         tokens.push_back(
             static_cast<int>(selected));
 
-        const std::string word =
+        const std::string piece =
             impl_->tokenizer.decode(
                 {static_cast<int>(selected)});
 
-        if (!word.empty()) {
-            if (!result.str().empty() &&
-                result.str().back() != ' ') {
-                result << ' ';
-            }
-            result << word;
-        }
+        result << piece;
     }
 
     return result.str();
