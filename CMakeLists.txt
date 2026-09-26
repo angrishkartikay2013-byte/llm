@@ -32,6 +32,16 @@ add_executable(ultron
 )
 target_include_directories(ultron PRIVATE include)
 
+include(CheckIPOSupported)
+check_ipo_supported(
+    RESULT ULTRON_IPO_SUPPORTED
+    OUTPUT ULTRON_IPO_ERROR)
+if (ULTRON_IPO_SUPPORTED)
+    set_property(
+        TARGET ultron
+        PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+endif()
+
 if (MSVC)
     target_compile_options(ultron PRIVATE /W4)
     target_compile_options(ultron PRIVATE
