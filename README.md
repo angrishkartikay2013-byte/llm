@@ -1,97 +1,181 @@
 # ULTRON LLM
 
-ULTRON is a CPU-oriented Large Language Model engine built from scratch in C++20. The current model uses a two-block causal Transformer and trains embeddings, both Transformer blocks, and the output projection end-to-end. The runtime also keeps learned question-answer associations extracted from the training corpus so explicitly taught facts can be recalled reliably while the Transformer remains the general text-generation path.
+ULTRON is a CPU-oriented **Large Language Model engine built from scratch in C++20**. The current model is a small causal Transformer intended for local experiments on modest hardware.
+
+## What ULTRON is
+
+- **AI** is the broad category.
+- **LLM** is the neural language model being built here.
+- **Chatbot** is the application layer that lets you talk to the model.
+
+ULTRON is therefore a small locally trained **LLM used as a conversational AI chatbot**.
+
+The model does not call ChatGPT or Qwen during normal inference. Ollama is an optional local teacher/data generator; ULTRON remains the student model.
+
+## Current model
+
+The core model currently uses:
+
+- 32-dimensional token embeddings
+- 4 attention heads
+- 2 causal Transformer blocks
+- 128-dimensional feed-forward layers
+- 128-token maximum context
+- learned token embeddings and output projection
+- sinusoidal positional information
+- full backpropagation through attention, LayerNorm, GELU, residual paths, both Transformer blocks, and embeddings
+- Adam optimization with gradient clipping
+
+This is intentionally small enough to run CPU-only, but it is also far smaller than production LLMs. Training quality is therefore strongly dependent on tokenizer quality, corpus quality, optimization, and model capacity.
+
+## Tokenizer
+
+Fresh models now use a **byte-level BPE tokenizer**.
+
+The tokenizer starts with all 256 possible byte values plus <unk>, then learns deterministic frequent byte-pair merges from the first training corpus.
+
+Important properties:
+
+- Spaces, punctuation, and newlines are represented naturally.
+- Unseen words do not collapse to one <unk> token; they fall back to byte/subword pieces.
+- BPE merges are frozen after the first tokenizer build so later lessons cannot silently renumber token IDs.
+- Newlines are not merged across paragraph boundaries.
+- Learned tokens are capped at 16 bytes to reduce tiny-model memorization of long corpus-specific phrases.
+- Tokenizer checkpoints include the learned merge table.
+- Legacy word-tokenizer checkpoints remain readable for compatibility.
+
+Because token IDs and model weights depend on the tokenizer, **build a fresh checkpoint after the BPE upgrade** rather than judging the new tokenizer with an old word-tokenizer checkpoint.
 
 ## Build
 
-Use:
+From the repository root:
 
     cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
     cmake --build build
     ctest --test-dir build --output-on-failure
 
-## Train
+The smoke tests now cover tensor math, BPE round-tripping, tokenizer serialization, Adam serialization, Transformer backward finiteness, learned-answer memory, and exact training-resume behavior.
 
-Train on the bundled local corpus. Training sweeps across the entire corpus in overlapping context windows, so long datasets are not truncated to only its final context:
+## Train from scratch
 
-    .\build\ultron.exe --train data/train.txt --epochs 5 --lr 0.003 --save models\ultron.bin
+The safest first experiment after a tokenizer/model upgrade is:
 
-Run a saved model:
+    .\scripts\train.ps1 -Fresh -Epochs 20
 
-    .\build\ultron.exe --load models\ultron.bin --max-tokens 30
+The script uses models/ultron_bpe.bin by default so an older models/ultron.bin checkpoint cannot accidentally become the starting point.
+
+It also evaluates the saved checkpoint automatically after training and reports:
+
+- mean loss
+- perplexity
+- accuracy
+
+That makes it much easier to detect a run that compiled successfully but did not actually improve the model.
+
+To train directly:
+
+    .\build\ultron.exe --train data\train.txt --epochs 20 --lr 0.001 --save models\ultron_bpe.bin
+
+## Continue training
+
+Direct CLI continuation is explicit:
+
+    .\build\ultron.exe --load models\ultron_bpe.bin --train data\train.txt --epochs 20 --lr 0.001 --save models\ultron_bpe.bin
+
+The PowerShell training script now resumes automatically when its checkpoint already exists:
+
+    .\scripts\train.ps1 -Epochs 20
+
+Use:
+
+    .\scripts\train.ps1 -Fresh -Epochs 20
+
+when you intentionally want a new model.
+
+New checkpoints store the tokenizer, model weights, learned question-answer associations, and Adam optimizer state. A dedicated smoke test verifies that:
+
+    2 uninterrupted epochs
+
+produces the same model as:
+
+    1 epoch -> save checkpoint -> load -> 1 more epoch
+
+This specifically guards against the common mistake of thinking a run is continuing when the optimizer or model state actually restarted.
+
+## Generate
+
+For a clean inference test that does not train on the model's own answers:
+
+    .\build\ultron.exe --load models\ultron_bpe.bin --max-tokens 30 --temperature 0.7 --top-k 5 --no-online-learning
+
+For a deterministic regression-style sample:
+
+    .\build\ultron.exe --load models\ultron_bpe.bin --max-tokens 30 --temperature 0.2 --top-k 1 --no-online-learning
 
 ## Conversation learning
 
-Interactive mode keeps a small rolling conversation history in:
+Interactive mode keeps recent conversation context in:
 
     data/conversations.txt
 
-Each completed exchange receives a small online learning update and the live checkpoint is saved to:
-
-    models/ultron_live.bin
-
-To explicitly teach ULTRON a fact or response:
+Explicit teaching is supported:
 
     teach what is attention => attention combines information from relevant positions in context.
 
-To ask the connected dictionary:
+The explicit teach path writes a learned question-answer association into the checkpoint so that exact taught questions can be recalled reliably.
 
-    define attention
+Automatic online learning is intentionally separate from clean inference. For experiments and evaluation, use:
 
-The dictionary command queries the public Free Dictionary API at runtime; definitions are not hardcoded into the model.
+    --no-online-learning
 
-## External training data
+This avoids immediately training on ULTRON's own possibly incorrect generated responses.
 
-Download an English CC0 sentence corpus from Tatoeba:
+## Evaluation
+
+To evaluate a saved model on a corpus:
+
+    .\build\ultron.exe --load models\ultron_bpe.bin --eval data\train.txt --no-online-learning
+
+The reported metrics are mean loss, perplexity, and next-token accuracy.
+
+## External English data
+
+Download a CC0 English sentence corpus from Tatoeba:
 
     .\scripts\download_tatoeba.ps1 -MaxSentences 100000
 
-Then train with:
+Then:
 
     .\scripts\train.ps1 -ExternalCorpus -Epochs 1
 
-Downloaded corpora and local model files are ignored by Git.
+The training script resumes an existing checkpoint unless -Fresh is supplied.
 
-Google Research also published the One Billion Word Benchmark, an approximately one-billion-word language-modeling corpus. It is useful for research, but it is far too large for the current CPU-only ULTRON experiments, so ULTRON does not automatically download it.
+## Ollama teacher
 
-## Ollama one-shot distillation
+Ollama can act as a temporary local teacher while ULTRON remains the student.
 
-ULTRON can temporarily use an installed local Ollama model to generate additional training sentences, train the local C++ model on them, and then unload the Ollama model.
-
-Run:
+One-shot bootstrap:
 
     .\scripts\ollama_bootstrap.ps1 -Model "qwen3:8b" -Epochs 1
 
-The script talks only to Ollama on http://localhost:11434, writes the generated corpus to data/external/ollama_distill.txt, trains ULTRON, saves models/ultron.bin, and then unloads the model and stops the daemon if the script started it. The default bootstrap is deliberately small: one batch of 30 short sentences, suitable for a quick CPU experiment.
+The bootstrap now resumes models/ultron_bpe.bin by default. Use -Fresh for an intentional reset.
 
-This is knowledge distillation/data synthesis: Ollama is the temporary teacher, while ULTRON remains the standalone model after the bootstrap finishes.
+Cumulative replay teacher:
 
-## Training architecture
+    .\scripts\ollama_teacher.ps1 -Model "qwen3:8b" -Rounds 10 -ReplayEpochs 5
 
-The training path performs full gradient backpropagation through the output projection, both Transformer blocks, causal multi-head attention, GELU, LayerNorm, residual paths, and token embeddings. Gradients are clipped before Adam updates. Embedding gradients use the same per-window normalization as the upstream hidden-state gradients. The smoke test also exercises the Transformer backward pass directly.
+Each lesson is added to the replay corpus, and ULTRON is retrained on the base corpus plus all accumulated lessons. Ollama is only the temporary lesson generator; ULTRON remains the local student checkpoint.
 
-Generation supports a clean inference mode that prevents generated responses from being fed back into online learning:
+## Design goal
 
-    .\\build\\ultron.exe --load models\\ultron.bin --max-tokens 20 --no-online-learning
+The project is intentionally being built in stages:
 
-Model checkpoints written by the current training path use checkpoint version 5 and include the tokenizer, both Transformer blocks, output weights, and learned question-answer associations. Version 4 checkpoints can still be loaded, but they contain no learned answer memory until they are trained and saved again. Re-train a new checkpoint after pulling tokenizer or architecture changes rather than judging a newly built binary with an older checkpoint.
+1. reliable tokenizer and text representation
+2. reliable forward/backward training
+3. checkpointable model and optimizer state
+4. better language data
+5. teacher-generated lessons and replay
+6. larger model capacity as hardware permits
+7. richer ULTRON assistant features around the LLM
 
-## Ollama teacher with replay
-
-Run:
-
-    .\scripts\ollama_teacher.ps1 -Model "qwen3:8b" -Rounds 5
-
-The teacher now uses cumulative replay training and the model stores learned question-answer associations from the replay corpus. Each round asks Ollama for a new lesson, shows ULTRON's answer before learning, permanently appends the question/answer to data/external/ollama_teacher.txt, rebuilds a combined corpus from data/train.txt plus every accumulated lesson, and retrains ULTRON on that full replay corpus. This prevents the student update from focusing only on the newest lesson.
-
-By default each lesson receives 5 replay epochs at learning rate 0.001. Adjust them with:
-
-    .\scripts\ollama_teacher.ps1 -Model "qwen3:8b" -Rounds 10 -ReplayEpochs 5 -LearningRate 0.001
-
-The teacher also asks Ollama to avoid recently used questions. Use -ResetTeacherCorpus to start a fresh teacher run and discard the previous local lesson corpus/live checkpoint:
-
-    .\scripts\ollama_teacher.ps1 -Model "qwen3:8b" -Rounds 100 -ReplayEpochs 5 -ResetTeacherCorpus
-
-The accumulated student checkpoint is saved as models/ultron_live.bin. The replay corpus and combined training corpus are runtime files and are ignored by Git.
-
-No factual answers are hard-coded. Ollama supplies the lessons dynamically through its local API; ULTRON remains the student model.
+The project should be judged by reproducible training curves, evaluation metrics, and generation tests—not by the number of epochs alone.
