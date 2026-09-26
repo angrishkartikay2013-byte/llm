@@ -6,6 +6,8 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <cstdio>
+#include <string>
 #include <vector>
 
 int main() {
@@ -38,6 +40,18 @@ int main() {
     assert(std::isfinite(metrics.perplexity));
     const std::string generated = model.generate("hello", 4, 0.8f, 4, 42);
     assert(!generated.empty());
+
+    const std::string checkpoint = "ultron_smoke_checkpoint.bin";
+    assert(model.save_checkpoint(checkpoint));
+
+    ULTRONModel restored;
+    assert(restored.load_checkpoint(checkpoint));
+
+    const std::string restored_text =
+        restored.generate("hello", 4, 0.8f, 4, 42);
+    assert(restored_text == generated);
+
+    std::remove(checkpoint.c_str());
 
     std::cout << "ULTRON smoke tests passed." << std::endl;
     return 0;
