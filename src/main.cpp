@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
                 std::cerr
                     << "Failed to load checkpoint: "
                     << options.load_file
-                    << '\\n';
+                    << '\n';
                 return 1;
             }
 
@@ -193,7 +193,7 @@ int main(int argc, char** argv) {
             std::cout
                 << "Training complete. Mean loss: "
                 << loss
-                << '\\n';
+                << '\n';
 
             if (!options.save_file.empty()) {
                 if (!model.save_checkpoint(
@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
                     std::cerr
                         << "Failed to save checkpoint: "
                         << options.save_file
-                        << '\\n';
+                        << '\n';
                     return 1;
                 }
 
@@ -218,16 +218,16 @@ int main(int argc, char** argv) {
             std::cout
                 << "Evaluation samples: "
                 << metrics.samples
-                << '\\n'
+                << '\n'
                 << "Mean loss: "
                 << metrics.mean_loss
-                << '\\n'
+                << '\n'
                 << "Perplexity: "
                 << metrics.perplexity
-                << '\\n'
+                << '\n'
                 << "Accuracy: "
                 << metrics.accuracy
-                << '\\n';
+                << '\n';
         }
 
         std::cout
@@ -292,7 +292,7 @@ int main(int argc, char** argv) {
                 std::cout
                     << "ULTRON learned. loss="
                     << loss
-                    << '\\n';
+                    << '\n';
                 continue;
             }
 
@@ -312,7 +312,7 @@ int main(int argc, char** argv) {
                     std::cout
                         << "ULTRON: "
                         << definition
-                        << '\\n';
+                        << '\n';
                 }
 
                 continue;
@@ -353,7 +353,7 @@ int main(int argc, char** argv) {
             std::cout
                 << "ULTRON: "
                 << response
-                << '\\n';
+                << '\n';
 
             // Persist the exchange and perform a small online update.
             conversations.append(
@@ -378,7 +378,7 @@ int main(int argc, char** argv) {
         std::cerr
             << "ULTRON error: "
             << error.what()
-            << '\\n';
+            << '\n';
 
         return 1;
     }
