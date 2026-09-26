@@ -1078,81 +1078,192 @@ void TransformerBlock::backward(
                 grad_attention_projected[i]);
     }
 
-    for (std::size_t query = 0;
-         query < sequence_length;
-         ++query) {
+    const unsigned int detected_threads =
+        std::thread::hardware_concurrency();
 
-        for (std::size_t head = 0;
-             head < num_heads_;
-             ++head) {
+    const std::size_t attention_thread_count =
+        std::max<std::size_t>(
+            1,
+            std::min<std::size_t>(
+                sequence_length,
+                detected_threads == 0
+                    ? 1
+                    : static_cast<std::size_t>(
+                        detected_threads)));
 
-            const std::size_t offset =
-                head * head_size_;
+    using GradientRows = std::vector<std::vector<float>>;
 
-            const auto& weights =
-                attention_weights[query][head];
+    std::vector<GradientRows> thread_grad_queries(
+        attention_thread_count,
+        GradientRows(
+            sequence_length,
+            std::vector<float>(
+                embedding_size_,
+                0.0f)));
 
-            std::vector<float> grad_weights(
-                weights.size(),
-                0.0f);
+    std::vector<GradientRows> thread_grad_keys(
+        attention_thread_count,
+        GradientRows(
+            sequence_length,
+            std::vector<float>(
+                embedding_size_,
+                0.0f)));
 
-            for (std::size_t key = 0;
-                 key <= query;
-                 ++key) {
+    std::vector<GradientRows> thread_grad_values(
+        attention_thread_count,
+        GradientRows(
+            sequence_length,
+            std::vector<float>(
+                embedding_size_,
+                0.0f)));
 
-                float gradient_weight = 0.0f;
+    const auto backward_attention_worker =
+        [&](std::size_t worker_index) {
 
-                for (std::size_t d = 0;
-                     d < head_size_;
-                     ++d) {
-                    gradient_weight +=
-                        grad_attention_concat[query][offset + d] *
-                        values[key][offset + d];
+            const std::size_t begin =
+                (sequence_length * worker_index) /
+                attention_thread_count;
 
-                    grad_values[key][offset + d] +=
-                        weights[key] *
-                        grad_attention_concat[query][offset + d];
+            const std::size_t end =
+                (sequence_length * (worker_index + 1)) /
+                attention_thread_count;
+
+            auto& local_grad_queries =
+                thread_grad_queries[worker_index];
+
+            auto& local_grad_keys =
+                thread_grad_keys[worker_index];
+
+            auto& local_grad_values =
+                thread_grad_values[worker_index];
+
+            for (std::size_t query = begin;
+                 query < end;
+                 ++query) {
+
+                for (std::size_t head = 0;
+                     head < num_heads_;
+                     ++head) {
+
+                    const std::size_t offset =
+                        head * head_size_;
+
+                    const auto& weights =
+                        attention_weights[query][head];
+
+                    std::vector<float> grad_weights(
+                        weights.size(),
+                        0.0f);
+
+                    for (std::size_t key = 0;
+                         key <= query;
+                         ++key) {
+
+                        float gradient_weight = 0.0f;
+
+                        for (std::size_t d = 0;
+                             d < head_size_;
+                             ++d) {
+
+                            gradient_weight +=
+                                grad_attention_concat[
+                                    query][offset + d] *
+                                values[key][offset + d];
+
+                            local_grad_values[key][offset + d] +=
+                                weights[key] *
+                                grad_attention_concat[
+                                    query][offset + d];
+                        }
+
+                        grad_weights[key] =
+                            gradient_weight;
+                    }
+
+                    float weighted_gradient_sum = 0.0f;
+
+                    for (std::size_t key = 0;
+                         key <= query;
+                         ++key) {
+
+                        weighted_gradient_sum +=
+                            grad_weights[key] *
+                            weights[key];
+                    }
+
+                    for (std::size_t key = 0;
+                         key <= query;
+                         ++key) {
+
+                        const float grad_score =
+                            weights[key] *
+                            (grad_weights[key] -
+                             weighted_gradient_sum);
+
+                        for (std::size_t d = 0;
+                             d < head_size_;
+                             ++d) {
+
+                            local_grad_queries[
+                                query][offset + d] +=
+                                grad_score *
+                                keys[key][offset + d] *
+                                scale;
+
+                            local_grad_keys[
+                                key][offset + d] +=
+                                grad_score *
+                                queries[query][offset + d] *
+                                scale;
+                        }
+                    }
                 }
-
-                grad_weights[key] =
-                    gradient_weight;
             }
+        };
 
-            float weighted_gradient_sum = 0.0f;
+    std::vector<std::thread> attention_workers;
+    attention_workers.reserve(attention_thread_count);
 
-            for (std::size_t key = 0;
-                 key <= query;
-                 ++key) {
-                weighted_gradient_sum +=
-                    grad_weights[key] *
-                    weights[key];
-            }
+    for (std::size_t worker = 0;
+         worker < attention_thread_count;
+         ++worker) {
 
-            for (std::size_t key = 0;
-                 key <= query;
-                 ++key) {
+        attention_workers.emplace_back(
+            backward_attention_worker,
+            worker);
+    }
 
-                const float grad_score =
-                    weights[key] *
-                    (grad_weights[key] -
-                     weighted_gradient_sum);
+    for (auto& worker : attention_workers) {
+        worker.join();
+    }
 
-                for (std::size_t d = 0;
-                     d < head_size_;
-                     ++d) {
+    for (std::size_t worker = 0;
+         worker < attention_thread_count;
+         ++worker) {
 
-                    grad_queries[query][offset + d] +=
-                        grad_score *
-                        keys[key][offset + d] *
-                        scale;
+        for (std::size_t query = 0;
+             query < sequence_length;
+             ++query) {
 
-                    grad_keys[key][offset + d] +=
-                        grad_score *
-                        queries[query][offset + d] *
-                        scale;
-                }
+            for (std::size_t dimension = 0;
+                 dimension < embedding_size_;
+                 ++dimension) {
+
+                grad_queries[query][dimension] +=
+                    thread_grad_queries[
+                        worker][query][dimension];
+
+                grad_keys[query][dimension] +=
+                    thread_grad_keys[
+                        worker][query][dimension];
+
+                grad_values[query][dimension] +=
+                    thread_grad_values[
+                        worker][query][dimension];
             }
         }
+    }
+
     }
 
     for (std::size_t i = 0;
