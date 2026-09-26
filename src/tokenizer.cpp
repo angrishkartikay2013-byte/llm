@@ -246,6 +246,8 @@ void Tokenizer::learn_bpe(
     sequences.emplace_back();
     sequences.back().reserve(text.size());
 
+    // Do not learn merges across newline boundaries. Spaces may still be
+    // merged with words (for example " the"), which preserves natural layout.
     for (const unsigned char byte :
          std::string(text.begin(), text.end())) {
 
@@ -256,6 +258,15 @@ void Tokenizer::learn_bpe(
                     static_cast<char>(byte)));
 
         sequences.back().push_back(id);
+
+        if (byte == '\n' && !sequences.back().empty()) {
+            sequences.emplace_back();
+        }
+    }
+
+    if (!sequences.empty() &&
+        sequences.back().empty()) {
+        sequences.pop_back();
     }
 
     const std::size_t max_vocabulary =
@@ -295,6 +306,8 @@ void Tokenizer::learn_bpe(
         int best_left = std::numeric_limits<int>::max();
         int best_right = std::numeric_limits<int>::max();
 
+        constexpr std::size_t kMaxTokenBytes = 16;
+
         for (const auto& entry : counts) {
             const int left =
                 static_cast<int>(
@@ -305,6 +318,24 @@ void Tokenizer::learn_bpe(
                 static_cast<int>(
                     static_cast<std::uint32_t>(
                         entry.first & 0xffffffffULL));
+
+            if (left < 0 || right < 0 ||
+                static_cast<std::size_t>(left) >= id_to_token_.size() ||
+                static_cast<std::size_t>(right) >= id_to_token_.size()) {
+                continue;
+            }
+
+            const std::size_t merged_bytes =
+                id_to_token_[
+                    static_cast<std::size_t>(left)].size() +
+                id_to_token_[
+                    static_cast<std::size_t>(right)].size();
+
+            // Tiny models benefit more from reusable subwords than from
+            // memorizing long, corpus-specific phrases.
+            if (merged_bytes > kMaxTokenBytes) {
+                continue;
+            }
 
             if (entry.second > best_count ||
                 (entry.second == best_count &&
