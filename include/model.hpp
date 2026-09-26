@@ -28,7 +28,8 @@ public:
         float learning_rate = 0.001f,
         const std::function<void(
             std::size_t,
-            float)>& progress = {});
+            float)>& progress = {},
+        std::size_t speed = 1);
 
     ModelEvaluation evaluate(
         const std::string& text) const;
