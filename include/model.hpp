@@ -25,7 +25,7 @@ public:
     float train(
         const std::string& text,
         std::size_t epochs = 1,
-        float learning_rate = 0.003f,
+        float learning_rate = 0.001f,
         const std::function<void(
             std::size_t,
             float)>& progress = {});
