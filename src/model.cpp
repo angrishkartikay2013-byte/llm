@@ -640,6 +640,9 @@ float ULTRONModel::train(
     const unsigned int detected_training_threads =
         std::thread::hardware_concurrency();
 
+    // hardware_concurrency reports logical processors on Windows.
+    // On the user's i7-4770TE this is 8, so the outer worker pool uses all
+    // eight logical processors whenever at least eight windows are available.
     const std::size_t training_threads =
         detected_training_threads == 0
             ? 1
@@ -667,17 +670,41 @@ float ULTRONModel::train(
             ? speed_config.sequence_length - 1
             : 1;
 
+    // Build explicit context-window start positions once. Each window is
+    // independent during a worker batch, so the outer worker pool can keep
+    // every logical CPU busy while the main thread performs deterministic
+    // gradient reduction and optimizer updates.
+    std::vector<std::size_t> window_starts;
+    for (std::size_t start = 0;
+         start + 1 < tokens.size();
+         start += window_step) {
+        window_starts.push_back(start);
+    }
+
+    if (window_starts.empty()) {
+        return 0.0f;
+    }
+
     for (std::size_t epoch = 0;
          epoch < epochs;
          ++epoch) {
+
+        // Shuffle window order each epoch so training does not always see
+        // the corpus in the same sequence while preserving deterministic
+        // behavior for a given run.
+        std::mt19937 shuffle_generator(
+            1337U +
+            static_cast<unsigned int>(epoch));
+        std::shuffle(
+            window_starts.begin(),
+            window_starts.end(),
+            shuffle_generator);
 
         double epoch_loss = 0.0;
         std::size_t epoch_samples = 0;
 
         const std::size_t total_windows =
-            tokens.size() <= 2
-                ? 0
-                : ((tokens.size() - 2) / window_step) + 1;
+            window_starts.size();
 
         std::size_t window_number = 0;
 
@@ -1135,9 +1162,10 @@ float ULTRONModel::train(
 
             window_number = batch_end;
 
-            if (window_number == batch_size ||
-                window_number % 4 == 0 ||
-                window_number == total_windows) {
+            if (window_number == total_windows ||
+                window_number % std::max<std::size_t>(
+                    1,
+                    windows_per_batch) == 0) {
 
                 const double running_loss =
                     epoch_samples == 0
