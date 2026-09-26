@@ -12,10 +12,33 @@ std::vector<float> ultron_softmax(
         return {};
     }
 
+    std::vector<float> probabilities(
+        logits.size(),
+        0.0f);
+
+    ultron_softmax_into(
+        logits,
+        probabilities);
+
+    return probabilities;
+}
+
+void ultron_softmax_into(
+    const std::vector<float>& logits,
+    std::vector<float>& probabilities) {
+
+    if (logits.empty()) {
+        probabilities.clear();
+        return;
+    }
+
+    if (probabilities.size() != logits.size()) {
+        probabilities.resize(logits.size());
+    }
+
     const float max_logit =
         *std::max_element(logits.begin(), logits.end());
 
-    std::vector<float> probabilities(logits.size());
     float total = 0.0f;
 
     for (std::size_t i = 0; i < logits.size(); ++i) {
@@ -31,8 +54,6 @@ std::vector<float> ultron_softmax(
     for (float& probability : probabilities) {
         probability /= total;
     }
-
-    return probabilities;
 }
 
 float ultron_cross_entropy_loss(
