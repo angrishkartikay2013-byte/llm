@@ -8,60 +8,9 @@
 #include <stdexcept>
 #include <istream>
 #include <ostream>
-#include <thread>
+
 
 namespace {
-
-template <typename Function>
-void parallel_for_indices(
-    std::size_t count,
-    Function&& function) {
-
-    if (count <= 1) {
-        if (count == 1) function(0);
-        return;
-    }
-
-    const unsigned int detected =
-        std::thread::hardware_concurrency();
-
-    const std::size_t thread_count =
-        std::max<std::size_t>(
-            1,
-            std::min<std::size_t>(
-                count,
-                detected == 0
-                    ? 1
-                    : static_cast<std::size_t>(detected)));
-
-    if (thread_count <= 1) {
-        for (std::size_t index = 0; index < count; ++index) {
-            function(index);
-        }
-        return;
-    }
-
-    std::vector<std::thread> workers;
-    workers.reserve(thread_count);
-
-    for (std::size_t worker = 0; worker < thread_count; ++worker) {
-        workers.emplace_back([&, worker]() {
-            const std::size_t begin =
-                (count * worker) / thread_count;
-            const std::size_t end =
-                (count * (worker + 1)) / thread_count;
-
-            for (std::size_t index = begin; index < end; ++index) {
-                function(index);
-            }
-        });
-    }
-
-    for (auto& worker : workers) {
-        worker.join();
-    }
-}
-
 
 bool transformer_write_u64(
     std::ostream& output,
@@ -534,16 +483,14 @@ std::vector<std::vector<float>> TransformerBlock::forward(
     std::vector<std::vector<float>> values(
         sequence_length);
 
-    parallel_for_indices(
-        sequence_length,
-        [&](std::size_t i) {
-            queries[i] =
-                linear(embeddings[i], query_weight_);
-            keys[i] =
-                linear(embeddings[i], key_weight_);
-            values[i] =
-                linear(embeddings[i], value_weight_);
-        });
+    for (std::size_t i = 0; i < sequence_length; ++i) {
+        queries[i] =
+            linear(embeddings[i], query_weight_);
+        keys[i] =
+            linear(embeddings[i], key_weight_);
+        values[i] =
+            linear(embeddings[i], value_weight_);
+    }
 
     std::vector<std::vector<std::vector<float>>> attention_weights(
         sequence_length,
@@ -561,9 +508,9 @@ std::vector<std::vector<float>> TransformerBlock::forward(
         std::sqrt(
             static_cast<float>(head_size_));
 
-    parallel_for_indices(
-        sequence_length,
-        [&](std::size_t query) {
+    for (std::size_t query = 0;
+         query < sequence_length;
+         ++query) {
 
         for (std::size_t head = 0;
              head < num_heads_;
@@ -636,7 +583,7 @@ std::vector<std::vector<float>> TransformerBlock::forward(
                 }
             }
         }
-        });
+    }
 
     std::vector<std::vector<float>> attention_residual(
         sequence_length,
@@ -682,45 +629,45 @@ std::vector<std::vector<float>> TransformerBlock::forward(
     std::vector<std::vector<float>> output(
         sequence_length);
 
-    parallel_for_indices(
-        sequence_length,
-        [&](std::size_t i) {
+    for (std::size_t i = 0;
+         i < sequence_length;
+         ++i) {
 
-            ffn_pre[i] =
-                linear(
-                    norm1[i],
-                    feed_forward_in_);
+        ffn_pre[i] =
+            linear(
+                norm1[i],
+                feed_forward_in_);
 
-            ffn_activated[i].resize(
-                feed_forward_size_);
+        ffn_activated[i].resize(
+            feed_forward_size_);
 
-            for (std::size_t j = 0;
-                 j < feed_forward_size_;
-                 ++j) {
-                ffn_activated[i][j] =
-                    gelu(
-                        ffn_pre[i][j]);
-            }
+        for (std::size_t j = 0;
+             j < feed_forward_size_;
+             ++j) {
+            ffn_activated[i][j] =
+                gelu(
+                    ffn_pre[i][j]);
+        }
 
-            ffn_projected[i] =
-                linear(
-                    ffn_activated[i],
-                    feed_forward_out_);
+        ffn_projected[i] =
+            linear(
+                ffn_activated[i],
+                feed_forward_out_);
 
-            ffn_residual[i] =
-                norm1[i];
+        ffn_residual[i] =
+            norm1[i];
 
-            for (std::size_t dimension = 0;
-                 dimension < embedding_size_;
-                 ++dimension) {
-                ffn_residual[i][dimension] +=
-                    ffn_projected[i][dimension];
-            }
+        for (std::size_t dimension = 0;
+             dimension < embedding_size_;
+             ++dimension) {
+            ffn_residual[i][dimension] +=
+                ffn_projected[i][dimension];
+        }
 
-            output[i] =
-                layer_norm(
-                    ffn_residual[i]);
-        });
+        output[i] =
+            layer_norm(
+                ffn_residual[i]);
+    }
 
     return output;
 }
@@ -798,22 +745,22 @@ void TransformerBlock::backward(
             embedding_size_,
             0.0f));
 
-    parallel_for_indices(
-        sequence_length,
-        [&](std::size_t i) {
-            queries[i] =
-                linear(
-                    embeddings[i],
-                    query_weight_);
-            keys[i] =
-                linear(
-                    embeddings[i],
-                    key_weight_);
-            values[i] =
-                linear(
-                    embeddings[i],
-                    value_weight_);
-        });
+    for (std::size_t i = 0;
+         i < sequence_length;
+         ++i) {
+        queries[i] =
+            linear(
+                embeddings[i],
+                query_weight_);
+        keys[i] =
+            linear(
+                embeddings[i],
+                key_weight_);
+        values[i] =
+            linear(
+                embeddings[i],
+                value_weight_);
+    }
 
     for (std::size_t query = 0;
          query < sequence_length;
@@ -1078,192 +1025,81 @@ void TransformerBlock::backward(
                 grad_attention_projected[i]);
     }
 
-    const unsigned int detected_threads =
-        std::thread::hardware_concurrency();
+    for (std::size_t query = 0;
+         query < sequence_length;
+         ++query) {
 
-    const std::size_t attention_thread_count =
-        std::max<std::size_t>(
-            1,
-            std::min<std::size_t>(
-                sequence_length,
-                detected_threads == 0
-                    ? 1
-                    : static_cast<std::size_t>(
-                        detected_threads)));
+        for (std::size_t head = 0;
+             head < num_heads_;
+             ++head) {
 
-    using GradientRows = std::vector<std::vector<float>>;
+            const std::size_t offset =
+                head * head_size_;
 
-    std::vector<GradientRows> thread_grad_queries(
-        attention_thread_count,
-        GradientRows(
-            sequence_length,
-            std::vector<float>(
-                embedding_size_,
-                0.0f)));
+            const auto& weights =
+                attention_weights[query][head];
 
-    std::vector<GradientRows> thread_grad_keys(
-        attention_thread_count,
-        GradientRows(
-            sequence_length,
-            std::vector<float>(
-                embedding_size_,
-                0.0f)));
+            std::vector<float> grad_weights(
+                weights.size(),
+                0.0f);
 
-    std::vector<GradientRows> thread_grad_values(
-        attention_thread_count,
-        GradientRows(
-            sequence_length,
-            std::vector<float>(
-                embedding_size_,
-                0.0f)));
+            for (std::size_t key = 0;
+                 key <= query;
+                 ++key) {
 
-    const auto backward_attention_worker =
-        [&](std::size_t worker_index) {
+                float gradient_weight = 0.0f;
 
-            const std::size_t begin =
-                (sequence_length * worker_index) /
-                attention_thread_count;
+                for (std::size_t d = 0;
+                     d < head_size_;
+                     ++d) {
+                    gradient_weight +=
+                        grad_attention_concat[query][offset + d] *
+                        values[key][offset + d];
 
-            const std::size_t end =
-                (sequence_length * (worker_index + 1)) /
-                attention_thread_count;
+                    grad_values[key][offset + d] +=
+                        weights[key] *
+                        grad_attention_concat[query][offset + d];
+                }
 
-            auto& local_grad_queries =
-                thread_grad_queries[worker_index];
+                grad_weights[key] =
+                    gradient_weight;
+            }
 
-            auto& local_grad_keys =
-                thread_grad_keys[worker_index];
+            float weighted_gradient_sum = 0.0f;
 
-            auto& local_grad_values =
-                thread_grad_values[worker_index];
+            for (std::size_t key = 0;
+                 key <= query;
+                 ++key) {
+                weighted_gradient_sum +=
+                    grad_weights[key] *
+                    weights[key];
+            }
 
-            for (std::size_t query = begin;
-                 query < end;
-                 ++query) {
+            for (std::size_t key = 0;
+                 key <= query;
+                 ++key) {
 
-                for (std::size_t head = 0;
-                     head < num_heads_;
-                     ++head) {
+                const float grad_score =
+                    weights[key] *
+                    (grad_weights[key] -
+                     weighted_gradient_sum);
 
-                    const std::size_t offset =
-                        head * head_size_;
+                for (std::size_t d = 0;
+                     d < head_size_;
+                     ++d) {
 
-                    const auto& weights =
-                        attention_weights[query][head];
+                    grad_queries[query][offset + d] +=
+                        grad_score *
+                        keys[key][offset + d] *
+                        scale;
 
-                    std::vector<float> grad_weights(
-                        weights.size(),
-                        0.0f);
-
-                    for (std::size_t key = 0;
-                         key <= query;
-                         ++key) {
-
-                        float gradient_weight = 0.0f;
-
-                        for (std::size_t d = 0;
-                             d < head_size_;
-                             ++d) {
-
-                            gradient_weight +=
-                                grad_attention_concat[
-                                    query][offset + d] *
-                                values[key][offset + d];
-
-                            local_grad_values[key][offset + d] +=
-                                weights[key] *
-                                grad_attention_concat[
-                                    query][offset + d];
-                        }
-
-                        grad_weights[key] =
-                            gradient_weight;
-                    }
-
-                    float weighted_gradient_sum = 0.0f;
-
-                    for (std::size_t key = 0;
-                         key <= query;
-                         ++key) {
-
-                        weighted_gradient_sum +=
-                            grad_weights[key] *
-                            weights[key];
-                    }
-
-                    for (std::size_t key = 0;
-                         key <= query;
-                         ++key) {
-
-                        const float grad_score =
-                            weights[key] *
-                            (grad_weights[key] -
-                             weighted_gradient_sum);
-
-                        for (std::size_t d = 0;
-                             d < head_size_;
-                             ++d) {
-
-                            local_grad_queries[
-                                query][offset + d] +=
-                                grad_score *
-                                keys[key][offset + d] *
-                                scale;
-
-                            local_grad_keys[
-                                key][offset + d] +=
-                                grad_score *
-                                queries[query][offset + d] *
-                                scale;
-                        }
-                    }
+                    grad_keys[key][offset + d] +=
+                        grad_score *
+                        queries[query][offset + d] *
+                        scale;
                 }
             }
-        };
-
-    std::vector<std::thread> attention_workers;
-    attention_workers.reserve(attention_thread_count);
-
-    for (std::size_t worker = 0;
-         worker < attention_thread_count;
-         ++worker) {
-
-        attention_workers.emplace_back(
-            backward_attention_worker,
-            worker);
-    }
-
-    for (auto& worker : attention_workers) {
-        worker.join();
-    }
-
-    for (std::size_t worker = 0;
-         worker < attention_thread_count;
-         ++worker) {
-
-        for (std::size_t query = 0;
-             query < sequence_length;
-             ++query) {
-
-            for (std::size_t dimension = 0;
-                 dimension < embedding_size_;
-                 ++dimension) {
-
-                grad_queries[query][dimension] +=
-                    thread_grad_queries[
-                        worker][query][dimension];
-
-                grad_keys[query][dimension] +=
-                    thread_grad_keys[
-                        worker][query][dimension];
-
-                grad_values[query][dimension] +=
-                    thread_grad_values[
-                        worker][query][dimension];
-            }
         }
-    }
-
     }
 
     for (std::size_t i = 0;
