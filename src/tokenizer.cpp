@@ -113,7 +113,140 @@ void Tokenizer::initialize_bpe_base() {
 
     bpe_mode_ = true;
     bpe_trained_ = false;
+    bpe_boundary_mode_ = true;
     legacy_preserve_layout_ = true;
+}
+
+std::vector<std::string> Tokenizer::split_bpe_units(
+    const std::string& text) {
+
+    std::vector<std::string> units;
+    std::string current;
+    current.reserve(16);
+
+    const auto flush = [&]() {
+        if (!current.empty()) {
+            units.push_back(std::move(current));
+            current.clear();
+        }
+    };
+
+    for (std::size_t i = 0; i < text.size();) {
+        const unsigned char byte =
+            static_cast<unsigned char>(text[i]);
+
+        // Keep line breaks and horizontal whitespace as explicit boundaries.
+        // This teaches the model where spaces and new lines belong without
+        // allowing a merge such as "word," or "word next".
+        if (byte == '\n') {
+            flush();
+            units.emplace_back("\n");
+            ++i;
+            continue;
+        }
+
+        if (byte == '\r') {
+            flush();
+            if (i + 1 < text.size() &&
+                text[i + 1] == '\n') {
+                units.emplace_back("\r\n");
+                i += 2;
+            } else {
+                units.emplace_back("\r");
+                ++i;
+            }
+            continue;
+        }
+
+        if (byte == ' ' || byte == '\t') {
+            flush();
+            units.emplace_back(1, static_cast<char>(byte));
+            ++i;
+            continue;
+        }
+
+        const bool ascii_word =
+            (byte >= 'A' && byte <= 'Z') ||
+            (byte >= 'a' && byte <= 'z') ||
+            (byte >= '0' && byte <= '9') ||
+            byte == '_';
+
+        if (ascii_word) {
+            flush();
+            current.push_back(static_cast<char>(byte));
+            ++i;
+
+            while (i < text.size()) {
+                const unsigned char next =
+                    static_cast<unsigned char>(text[i]);
+
+                const bool next_word =
+                    (next >= 'A' && next <= 'Z') ||
+                    (next >= 'a' && next <= 'z') ||
+                    (next >= '0' && next <= '9') ||
+                    next == '_';
+
+                if (!next_word) break;
+
+                current.push_back(static_cast<char>(next));
+                ++i;
+            }
+
+            units.push_back(std::move(current));
+            current.clear();
+            continue;
+        }
+
+        // Keep apostrophes and hyphens inside words so contractions and
+        // compounds can learn useful subwords without crossing word edges.
+        if (byte == '\'' || byte == '-') {
+            if (!current.empty() &&
+                i + 1 < text.size()) {
+                const unsigned char next =
+                    static_cast<unsigned char>(text[i + 1]);
+
+                const bool next_word =
+                    (next >= 'A' && next <= 'Z') ||
+                    (next >= 'a' && next <= 'z') ||
+                    (next >= '0' && next <= '9') ||
+                    next == '_';
+
+                if (next_word) {
+                    current.push_back(static_cast<char>(byte));
+                    ++i;
+                    continue;
+                }
+            }
+        }
+
+        flush();
+
+        // ASCII punctuation and symbols each form their own boundary.
+        // Non-ASCII UTF-8 bytes are grouped into a unit so common encoded
+        // characters can still participate in BPE.
+        if (byte >= 0x80) {
+            std::string utf8_bytes;
+            utf8_bytes.push_back(static_cast<char>(byte));
+            ++i;
+
+            while (i < text.size()) {
+                const unsigned char next =
+                    static_cast<unsigned char>(text[i]);
+                if (next < 0x80) break;
+                utf8_bytes.push_back(static_cast<char>(next));
+                ++i;
+            }
+
+            units.push_back(std::move(utf8_bytes));
+            continue;
+        }
+
+        units.emplace_back(1, static_cast<char>(byte));
+        ++i;
+    }
+
+    flush();
+    return units;
 }
 
 std::vector<std::string> Tokenizer::legacy_split(
@@ -244,31 +377,26 @@ void Tokenizer::learn_bpe(
         return;
     }
 
+    const auto units = split_bpe_units(text);
     std::vector<std::vector<int>> sequences;
-    sequences.emplace_back();
-    sequences.back().reserve(text.size());
+    sequences.reserve(units.size());
 
-    // Do not learn merges across newline boundaries. Spaces may still be
-    // merged with words (for example " the"), which preserves natural layout.
-    for (const unsigned char byte :
-         std::string(text.begin(), text.end())) {
+    for (const std::string& unit : units) {
+        std::vector<int> sequence;
+        sequence.reserve(unit.size());
 
-        const int id =
-            token_to_id_.at(
-                std::string(
-                    1,
-                    static_cast<char>(byte)));
-
-        sequences.back().push_back(id);
-
-        if (byte == '\n' && !sequences.back().empty()) {
-            sequences.emplace_back();
+        for (const unsigned char byte :
+             unit) {
+            sequence.push_back(
+                token_to_id_.at(
+                    std::string(
+                        1,
+                        static_cast<char>(byte))));
         }
-    }
 
-    if (!sequences.empty() &&
-        sequences.back().empty()) {
-        sequences.pop_back();
+        if (sequence.size() > 1) {
+            sequences.push_back(std::move(sequence));
+        }
     }
 
     const std::size_t max_vocabulary =
@@ -291,7 +419,6 @@ void Tokenizer::learn_bpe(
             for (std::size_t i = 1;
                  i < sequence.size();
                  ++i) {
-
                 ++counts[
                     pair_key(
                         sequence[i - 1],
@@ -307,7 +434,7 @@ void Tokenizer::learn_bpe(
         int best_left = std::numeric_limits<int>::max();
         int best_right = std::numeric_limits<int>::max();
 
-        constexpr std::size_t kMaxTokenBytes = 16;
+        constexpr std::size_t kMaxTokenBytes = 12;
 
         for (const auto& entry : counts) {
             const int left =
@@ -332,8 +459,6 @@ void Tokenizer::learn_bpe(
                 id_to_token_[
                     static_cast<std::size_t>(right)].size();
 
-            // Tiny models benefit more from reusable subwords than from
-            // memorizing long, corpus-specific phrases.
             if (merged_bytes > kMaxTokenBytes) {
                 continue;
             }
@@ -361,8 +486,6 @@ void Tokenizer::learn_bpe(
             }
         }
 
-        // Single occurrences do not justify creating a merge and would
-        // inflate the vocabulary without improving compression.
         if (best_count < 2) {
             break;
         }
@@ -371,20 +494,14 @@ void Tokenizer::learn_bpe(
             static_cast<int>(
                 id_to_token_.size());
 
-        const std::string& left_token =
-            id_to_token_[static_cast<std::size_t>(
-                best_left)];
-
-        const std::string& right_token =
-            id_to_token_[static_cast<std::size_t>(
-                best_right)];
-
         const std::string merged_token =
-            left_token + right_token;
+            id_to_token_[
+                static_cast<std::size_t>(best_left)] +
+            id_to_token_[
+                static_cast<std::size_t>(best_right)];
 
         token_to_id_[merged_token] = new_id;
-        id_to_token_.push_back(
-            merged_token);
+        id_to_token_.push_back(merged_token);
 
         merges_.emplace_back(
             best_left,
@@ -500,25 +617,61 @@ std::vector<int> Tokenizer::encode(
         return tokens;
     }
 
+    if (!bpe_boundary_mode_) {
+        std::vector<int> tokens;
+        tokens.reserve(text.size());
+
+        for (const unsigned char byte :
+             text) {
+
+            const auto it =
+                token_to_id_.find(
+                    std::string(
+                        1,
+                        static_cast<char>(byte)));
+
+            tokens.push_back(
+                it == token_to_id_.end()
+                    ? 0
+                    : it->second);
+        }
+
+        apply_merges(tokens);
+        return tokens;
+    }
+
     std::vector<int> tokens;
     tokens.reserve(text.size());
 
-    for (const unsigned char byte :
-         std::string(text.begin(), text.end())) {
+    for (const std::string& unit :
+         split_bpe_units(text)) {
 
-        const auto it =
-            token_to_id_.find(
-                std::string(
-                    1,
-                    static_cast<char>(byte)));
+        std::vector<int> unit_tokens;
+        unit_tokens.reserve(unit.size());
 
-        tokens.push_back(
-            it == token_to_id_.end()
-                ? 0
-                : it->second);
+        for (const unsigned char byte :
+             unit) {
+
+            const auto it =
+                token_to_id_.find(
+                    std::string(
+                        1,
+                        static_cast<char>(byte)));
+
+            unit_tokens.push_back(
+                it == token_to_id_.end()
+                    ? 0
+                    : it->second);
+        }
+
+        apply_merges(unit_tokens);
+
+        tokens.insert(
+            tokens.end(),
+            unit_tokens.begin(),
+            unit_tokens.end());
     }
 
-    apply_merges(tokens);
     return tokens;
 }
 
@@ -702,6 +855,7 @@ bool Tokenizer::load(
 
         bpe_mode_ = false;
         bpe_trained_ = false;
+        bpe_boundary_mode_ = false;
         return !id_to_token_.empty();
     }
 
@@ -712,7 +866,7 @@ bool Tokenizer::load(
     std::uint64_t merge_count = 0;
 
     if (!read_u64(input, version) ||
-        version != kFormatVersion ||
+        (version != 2 && version != 3) ||
         !read_u64(input, bpe_flag) ||
         !read_u64(input, layout_flag) ||
         !read_u64(input, count) ||
@@ -822,6 +976,8 @@ bool Tokenizer::load(
 
     bpe_mode_ = bpe_flag != 0;
     bpe_trained_ = bpe_mode_;
+    bpe_boundary_mode_ =
+        bpe_mode_ && version >= 3;
     legacy_preserve_layout_ =
         layout_flag != 0;
     merges_ = std::move(merges);
