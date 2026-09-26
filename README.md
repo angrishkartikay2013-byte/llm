@@ -20,7 +20,7 @@ The core model currently uses:
 - 4 attention heads
 - 2 causal Transformer blocks
 - 128-dimensional feed-forward layers
-- 128-token maximum context
+- 256-token maximum context
 - learned token embeddings and output projection
 - sinusoidal positional information
 - full backpropagation through attention, LayerNorm, GELU, residual paths, both Transformer blocks, and embeddings
@@ -32,14 +32,14 @@ This is intentionally small enough to run CPU-only, but it is also far smaller t
 
 Fresh models now use a **byte-level BPE tokenizer**.
 
-The tokenizer starts with all 256 possible byte values plus <unk>, then learns deterministic frequent byte-pair merges from the first training corpus.
+The tokenizer starts with all 256 possible byte values plus <unk>, then learns deterministic frequent byte-pair merges from the first training corpus. Fresh BPE models use boundary-aware tokenization: merges happen inside words and other local units, while spaces, tabs, punctuation, and line breaks remain explicit boundaries.
 
 Important properties:
 
-- Spaces, punctuation, and newlines are represented naturally.
+- Spaces, tabs, punctuation, and newlines remain explicit boundaries so generated text can learn readable layout.
 - Unseen words do not collapse to one <unk> token; they fall back to byte/subword pieces.
 - BPE merges are frozen after the first tokenizer build so later lessons cannot silently renumber token IDs.
-- Newlines are not merged across paragraph boundaries.
+- BPE merges never cross word, whitespace, punctuation, or newline boundaries.
 - Learned tokens are capped at 16 bytes to reduce tiny-model memorization of long corpus-specific phrases.
 - Tokenizer checkpoints include the learned merge table.
 - Legacy word-tokenizer checkpoints remain readable for compatibility.
@@ -54,9 +54,11 @@ From the repository root:
     cmake --build build
     ctest --test-dir build --output-on-failure
 
-The smoke tests now cover tensor math, BPE round-tripping, tokenizer serialization, Adam serialization, Transformer backward finiteness, learned-answer memory, and exact training-resume behavior.
+The smoke tests now cover tensor math, boundary-aware BPE round-tripping, tokenizer serialization, Adam serialization, Transformer backward finiteness, learned-answer memory, and exact training-resume behavior. The training script also refuses obviously undersized corpora and checks for the conversation and punctuation patterns expected in the main corpus.
 
 ## Train from scratch
+
+The repository now ships a language-focused training corpus plus a held-out validation corpus. The training corpus contains explicit lessons for spacing, punctuation, dialogue turns, paragraph structure, reasoning language, commands, formal/casual tone, numbers, and natural narration.
 
 The safest first experiment after a tokenizer/model upgrade is:
 
@@ -64,7 +66,7 @@ The safest first experiment after a tokenizer/model upgrade is:
 
 The script uses models/ultron_bpe.bin by default so an older models/ultron.bin checkpoint cannot accidentally become the starting point.
 
-It also evaluates the saved checkpoint automatically after training and reports:
+It also evaluates the saved checkpoint automatically after training on both the training corpus and the held-out validation corpus and reports:
 
 - mean loss
 - perplexity
