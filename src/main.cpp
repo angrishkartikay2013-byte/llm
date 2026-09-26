@@ -347,19 +347,21 @@ int main(int argc, char** argv) {
                 << '\n';
 
             // Persist the exchange and perform a small online update.
-            conversations.append(
-                input,
-                response);
+            if (options.online_learning) {
+                conversations.append(
+                    input,
+                    response);
 
-            if (!response.empty()) {
-                model.train(
-                    "USER: " + input +
-                    "\nULTRON: " + response,
-                    1,
-                    options.learning_rate * 0.1f);
+                if (!response.empty()) {
+                    model.train(
+                        "USER: " + input +
+                        "\nULTRON: " + response,
+                        1,
+                        options.learning_rate * 0.1f);
 
-                model.save_checkpoint(
-                    "models/ultron_live.bin");
+                    model.save_checkpoint(
+                        "models/ultron_live.bin");
+                }
             }
         }
 
