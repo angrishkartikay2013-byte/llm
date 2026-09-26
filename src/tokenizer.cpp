@@ -9,6 +9,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 
@@ -55,6 +56,29 @@ bool read_i32(
         sizeof(value));
 
     return static_cast<bool>(input);
+}
+
+std::size_t tokenizer_thread_count(
+    std::size_t work_items) {
+
+    if (work_items == 0) {
+        return 1;
+    }
+
+    const unsigned int hardware_threads =
+        std::thread::hardware_concurrency();
+
+    const std::size_t available_threads =
+        hardware_threads == 0
+            ? 1
+            : static_cast<std::size_t>(
+                hardware_threads);
+
+    return std::max<std::size_t>(
+        1,
+        std::min(
+            work_items,
+            available_threads));
 }
 
 std::uint64_t pair_key(
@@ -384,6 +408,16 @@ void Tokenizer::learn_bpe(
         1 +
         kMaxMerges;
 
+    const std::size_t bpe_threads =
+        tokenizer_thread_count(
+            sequences.size());
+
+    std::cout
+        << "[tokenizer] CPU worker threads: "
+        << bpe_threads
+        << '
+';
+
     std::cout
         << "[tokenizer] learning up to "
         << kMaxMerges
@@ -400,18 +434,65 @@ void Tokenizer::learn_bpe(
             std::uint64_t,
             std::size_t> counts;
 
-        for (const auto& sequence : sequences) {
-            if (sequence.size() < 2) {
-                continue;
-            }
+        const std::size_t count_threads =
+            tokenizer_thread_count(
+                sequences.size());
 
-            for (std::size_t i = 1;
-                 i < sequence.size();
-                 ++i) {
-                ++counts[
-                    pair_key(
-                        sequence[i - 1],
-                        sequence[i])];
+        std::vector<std::unordered_map<
+            std::uint64_t,
+            std::size_t>> local_counts(
+                count_threads);
+
+        std::vector<std::thread> count_workers;
+        count_workers.reserve(count_threads);
+
+        for (std::size_t worker = 0;
+             worker < count_threads;
+             ++worker) {
+
+            count_workers.emplace_back(
+                [&, worker]() {
+                    const std::size_t begin =
+                        (sequences.size() * worker) /
+                        count_threads;
+                    const std::size_t end =
+                        (sequences.size() * (worker + 1)) /
+                        count_threads;
+
+                    auto& worker_counts =
+                        local_counts[worker];
+
+                    for (std::size_t sequence_index = begin;
+                         sequence_index < end;
+                         ++sequence_index) {
+
+                        const auto& sequence =
+                            sequences[sequence_index];
+
+                        if (sequence.size() < 2) {
+                            continue;
+                        }
+
+                        for (std::size_t i = 1;
+                             i < sequence.size();
+                             ++i) {
+
+                            ++worker_counts[
+                                pair_key(
+                                    sequence[i - 1],
+                                    sequence[i])];
+                        }
+                    }
+                });
+        }
+
+        for (auto& worker : count_workers) {
+            worker.join();
+        }
+
+        for (const auto& worker_counts : local_counts) {
+            for (const auto& entry : worker_counts) {
+                counts[entry.first] += entry.second;
             }
         }
 
@@ -508,26 +589,60 @@ void Tokenizer::learn_bpe(
             std::cout.flush();
         }
 
-        for (auto& sequence : sequences) {
-            std::vector<int> merged;
-            merged.reserve(sequence.size());
+        const std::size_t merge_threads =
+            tokenizer_thread_count(
+                sequences.size());
 
-            std::size_t i = 0;
+        std::vector<std::thread> merge_workers;
+        merge_workers.reserve(merge_threads);
 
-            while (i < sequence.size()) {
-                if (i + 1 < sequence.size() &&
-                    sequence[i] == best_left &&
-                    sequence[i + 1] == best_right) {
+        for (std::size_t worker = 0;
+             worker < merge_threads;
+             ++worker) {
 
-                    merged.push_back(new_id);
-                    i += 2;
-                } else {
-                    merged.push_back(sequence[i]);
-                    ++i;
-                }
-            }
+            merge_workers.emplace_back(
+                [&, worker]() {
+                    const std::size_t begin =
+                        (sequences.size() * worker) /
+                        merge_threads;
+                    const std::size_t end =
+                        (sequences.size() * (worker + 1)) /
+                        merge_threads;
 
-            sequence.swap(merged);
+                    for (std::size_t sequence_index = begin;
+                         sequence_index < end;
+                         ++sequence_index) {
+
+                        auto& sequence =
+                            sequences[sequence_index];
+
+                        std::vector<int> merged;
+                        merged.reserve(
+                            sequence.size());
+
+                        std::size_t i = 0;
+
+                        while (i < sequence.size()) {
+                            if (i + 1 < sequence.size() &&
+                                sequence[i] == best_left &&
+                                sequence[i + 1] == best_right) {
+
+                                merged.push_back(new_id);
+                                i += 2;
+                            } else {
+                                merged.push_back(sequence[i]);
+                                ++i;
+                            }
+                        }
+
+                        sequence.swap(merged);
+                    }
+                });
+        }
+
+        for (auto& worker : merge_workers) {
+            worker.join();
+        }
         }
     }
     std::cout
