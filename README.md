@@ -1,6 +1,6 @@
 # ULTRON LLM
 
-ULTRON is a CPU-oriented Large Language Model engine built from scratch in C++20. The current model uses a two-block causal Transformer and trains embeddings, both Transformer blocks, and the output projection end-to-end. The tokenizer is a learned byte-level BPE tokenizer with ASCII case normalization, so unseen words do not automatically collapse to a single <unk> token.
+ULTRON is a CPU-oriented Large Language Model engine built from scratch in C++20. The current model uses a two-block causal Transformer and trains embeddings, both Transformer blocks, and the output projection end-to-end. The runtime also keeps learned question-answer associations extracted from the training corpus so explicitly taught facts can be recalled reliably while the Transformer remains the general text-generation path.
 
 ## Build
 
@@ -74,7 +74,7 @@ Generation supports a clean inference mode that prevents generated responses fro
 
     .\\build\\ultron.exe --load models\\ultron.bin --max-tokens 20 --no-online-learning
 
-Model checkpoints written by the current training path use checkpoint version 4 and include the learned tokenizer merges plus both Transformer blocks. Re-train a new checkpoint after pulling tokenizer or architecture changes rather than judging a newly built binary with an older checkpoint.
+Model checkpoints written by the current training path use checkpoint version 5 and include the tokenizer, both Transformer blocks, output weights, and learned question-answer associations. Version 4 checkpoints can still be loaded, but they contain no learned answer memory until they are trained and saved again. Re-train a new checkpoint after pulling tokenizer or architecture changes rather than judging a newly built binary with an older checkpoint.
 
 ## Ollama teacher with replay
 
@@ -82,7 +82,7 @@ Run:
 
     .\scripts\ollama_teacher.ps1 -Model "qwen3:8b" -Rounds 5
 
-The teacher now uses cumulative replay training. Each round asks Ollama for a new lesson, shows ULTRON's answer before learning, permanently appends the question/answer to data/external/ollama_teacher.txt, rebuilds a combined corpus from data/train.txt plus every accumulated lesson, and retrains ULTRON on that full replay corpus. This prevents the student update from focusing only on the newest lesson.
+The teacher now uses cumulative replay training and the model stores learned question-answer associations from the replay corpus. Each round asks Ollama for a new lesson, shows ULTRON's answer before learning, permanently appends the question/answer to data/external/ollama_teacher.txt, rebuilds a combined corpus from data/train.txt plus every accumulated lesson, and retrains ULTRON on that full replay corpus. This prevents the student update from focusing only on the newest lesson.
 
 By default each lesson receives 5 replay epochs at learning rate 0.001. Adjust them with:
 
