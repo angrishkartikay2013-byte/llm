@@ -25,6 +25,7 @@ constexpr std::size_t kHeads = 4;
 constexpr std::size_t kFeedForwardSize = 128;
 constexpr std::size_t kTransformerLayers = 2;
 constexpr std::size_t kMaxSequenceLength = 256;
+constexpr std::size_t kTrainingSequenceLength = 128;
 
 bool write_u64(std::ostream& output, std::uint64_t value) {
     output.write(reinterpret_cast<const char*>(&value), sizeof(value));
@@ -604,8 +605,8 @@ float ULTRONModel::train(
     // its final context window. Adjacent windows overlap by one token so
     // next-token examples at window boundaries are still represented.
     const std::size_t window_step =
-        kMaxSequenceLength > 1
-            ? kMaxSequenceLength - 1
+        kTrainingSequenceLength > 1
+            ? kTrainingSequenceLength - 1
             : 1;
 
     for (std::size_t epoch = 0;
@@ -622,7 +623,7 @@ float ULTRONModel::train(
             const std::size_t window_end =
                 std::min(
                     tokens.size(),
-                    window_start + kMaxSequenceLength);
+                    window_start + kTrainingSequenceLength);
 
             const std::size_t window_size =
                 window_end - window_start;
