@@ -20,7 +20,8 @@ public:
     TransformerBlock(
         std::size_t embedding_size,
         std::size_t num_heads = 4,
-        std::size_t feed_forward_size = 128);
+        std::size_t feed_forward_size = 128,
+        unsigned int seed = 11);
 
     std::vector<std::vector<float>> forward(
         const std::vector<std::vector<float>>& embeddings) const;
