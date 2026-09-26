@@ -13,8 +13,14 @@
 
 namespace {
 
+thread_local bool g_nested_parallel_worker = false;
+
 std::size_t transformer_thread_count(
     std::size_t sequence_length) {
+
+    if (g_nested_parallel_worker) {
+        return 1;
+    }
 
     const unsigned int hardware_threads =
         std::thread::hardware_concurrency();
@@ -216,6 +222,10 @@ void matrix_unflatten(
 }
 
 } // namespace
+
+void ultron_set_nested_parallel_worker(bool active) {
+    g_nested_parallel_worker = active;
+}
 
 TransformerBlock::Matrix TransformerBlock::random_matrix(
     std::size_t rows,
