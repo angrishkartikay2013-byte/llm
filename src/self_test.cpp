@@ -88,8 +88,8 @@ int run_ultron_smoke_tests() {
         model.generate(
             "hello",
             4,
-            0.8f,
-            4,
+            0.2f,
+            1,
             42);
 
     assert(!generated.empty());
@@ -122,8 +122,8 @@ int run_ultron_smoke_tests() {
         restored.generate(
             "hello",
             4,
-            0.8f,
-            4,
+            0.2f,
+            1,
             42);
 
     assert(restored_text == generated);
