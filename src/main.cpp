@@ -1,3 +1,5 @@
+#include "conversation.hpp"
+#include "dictionary.hpp"
 #include "model.hpp"
 
 #include <cstddef>
@@ -7,6 +9,8 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <algorithm>
+#include <cctype>
 
 namespace {
 struct Options {
@@ -109,6 +113,34 @@ std::string read_file(
     buffer << input.rdbuf();
     return buffer.str();
 }
+
+std::string trim_copy(std::string value) {
+    auto not_space = [](unsigned char character) {
+        return !std::isspace(character);
+    };
+
+    value.erase(
+        value.begin(),
+        std::find_if(
+            value.begin(),
+            value.end(),
+            not_space));
+
+    value.erase(
+        std::find_if(
+            value.rbegin(),
+            value.rend(),
+            not_space).base(),
+        value.end());
+
+    return value;
+}
+
+bool starts_with(
+    const std::string& value,
+    const std::string& prefix) {
+    return value.rfind(prefix, 0) == 0;
+}
 }
 
 int main(int argc, char** argv) {
@@ -117,6 +149,8 @@ int main(int argc, char** argv) {
             parse(argc, argv);
 
         ULTRONModel model;
+        ConversationStore conversations;
+        DictionaryClient dictionary;
 
         if (!options.load_file.empty()) {
             if (!model.load_checkpoint(
@@ -209,15 +243,124 @@ int main(int argc, char** argv) {
                 continue;
             }
 
-            std::cout
-                << "ULTRON: "
-                << model.generate(
-                    input,
+            if (starts_with(input, "teach ")) {
+                const std::string lesson =
+                    trim_copy(input.substr(6));
+                const std::size_t separator =
+                    lesson.find("=>");
+
+                if (separator == std::string::npos) {
+                    std::cout
+                        << "ULTRON: Use teach question => answer\n";
+                    continue;
+                }
+
+                const std::string question =
+                    trim_copy(lesson.substr(0, separator));
+                const std::string answer =
+                    trim_copy(lesson.substr(separator + 2));
+
+                if (question.empty() || answer.empty()) {
+                    std::cout
+                        << "ULTRON: Both sides of => are required.\n";
+                    continue;
+                }
+
+                const float loss =
+                    model.train(
+                        "USER: " + question +
+                        "\nULTRON: " + answer,
+                        2,
+                        options.learning_rate * 0.2f);
+
+                conversations.append(
+                    question,
+                    answer);
+
+                model.save_checkpoint(
+                    "models/ultron_live.bin");
+
+                std::cout
+                    << "ULTRON learned. loss="
+                    << loss
+                    << '\n';
+                continue;
+            }
+
+            if (starts_with(input, "define ")) {
+                const std::string word =
+                    trim_copy(input.substr(7));
+
+                const std::string definition =
+                    dictionary.lookup(word);
+
+                if (definition.empty()) {
+                    std::cout
+                        << "ULTRON: I couldn't retrieve a definition for '"
+                        << word
+                        << "'.\n";
+                } else {
+                    std::cout
+                        << "ULTRON: "
+                        << definition
+                        << '\n';
+                }
+
+                continue;
+            }
+
+            std::string prompt = input;
+            const std::string memory =
+                conversations.recent_context(4);
+
+            if (!memory.empty()) {
+                prompt =
+                    memory +
+                    "USER: " +
+                    input +
+                    "\nULTRON:";
+            } else {
+                prompt =
+                    "USER: " +
+                    input +
+                    "\nULTRON:";
+            }
+
+            const std::string full_generation =
+                model.generate(
+                    prompt,
                     options.max_new_tokens,
                     options.temperature,
                     options.top_k,
-                    options.seed)
+                    options.seed);
+
+            std::string response =
+                full_generation.rfind(prompt, 0) == 0
+                    ? full_generation.substr(prompt.size())
+                    : full_generation;
+
+            response = trim_copy(response);
+
+            std::cout
+                << "ULTRON: "
+                << response
                 << '\n';
+
+            // Persist the exchange and perform a small online update.
+            conversations.append(
+                input,
+                response);
+
+            if (!response.empty()) {
+                model.train(
+                    "USER: " + input +
+                    "\nULTRON: " + response,
+                    1,
+                    options.learning_rate * 0.1f);
+
+                model.save_checkpoint(
+                    "models/ultron_live.bin");
+            }
         }
 
         return 0;
