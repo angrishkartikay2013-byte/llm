@@ -20,14 +20,14 @@ struct Options {
     std::string load_file;
     std::string save_file;
     std::size_t epochs = 1;
-    float learning_rate = 0.003f;
+    float learning_rate = 0.001f;
     std::size_t max_new_tokens = 16;
     float temperature = 0.8f;
     std::size_t top_k = 8;
     unsigned int seed = 42;
     std::size_t save_every = 0;
     bool self_test = false;
-    bool online_learning = true;
+    bool online_learning = false;
 };
 
 std::string value_after(
@@ -86,6 +86,8 @@ Options parse(int argc, char** argv) {
                 value_after(i, argc, argv, "--save-every"));
         } else if (argument == "--self-test") {
             options.self_test = true;
+        } else if (argument == "--online-learning") {
+            options.online_learning = true;
         } else if (argument == "--no-online-learning") {
             options.online_learning = false;
         } else if (
@@ -101,7 +103,7 @@ Options parse(int argc, char** argv) {
                 << "--top-k K --seed N\n"
                 << "--save-every N\n"
                 << "--self-test\n"
-                << "--no-online-learning\n";
+                << "--online-learning --no-online-learning\n";
 
             std::exit(0);
         } else {
@@ -386,22 +388,23 @@ int main(int argc, char** argv) {
                 << response
                 << '\n';
 
-            // Persist the exchange and perform a small online update.
-            if (options.online_learning) {
-                conversations.append(
-                    input,
-                    response);
+            // Conversation history is always persisted, but ULTRON only
+            // trains on its own generated responses when explicitly enabled.
+            conversations.append(
+                input,
+                response);
 
-                if (!response.empty()) {
-                    model.train(
-                        "USER: " + input +
-                        "\nULTRON: " + response,
-                        1,
-                        options.learning_rate * 0.1f);
+            if (options.online_learning &&
+                !response.empty()) {
 
-                    model.save_checkpoint(
-                        "models/ultron_live.bin");
-                }
+                model.train(
+                    "USER: " + input +
+                    "\nULTRON: " + response,
+                    1,
+                    options.learning_rate * 0.1f);
+
+                model.save_checkpoint(
+                    "models/ultron_live.bin");
             }
         }
 
