@@ -96,6 +96,27 @@ int run_ultron_smoke_tests() {
             restored_tokenizer.encode(unseen_text)) ==
         unseen_text);
 
+    // Boundary-aware BPE must keep whitespace, punctuation, and newlines
+    // as explicit layout boundaries rather than merging them into words.
+    const layout_text =
+        "Hello, world!\nThis is a test.\nI'm ready.";
+
+    const layout_tokens =
+        tokenizer.encode(layout_text);
+
+    assert(
+        tokenizer.decode(layout_tokens) ==
+        layout_text);
+
+    assert(
+        tokenizer.encode("hello world").size() >= 3);
+
+    assert(
+        tokenizer.encode("hello,").size() >= 2);
+
+    assert(
+        tokenizer.encode("hello\nworld").size() >= 3);
+
     // Deterministic tokenizer training is important for reproducible models.
     Tokenizer tokenizer_again;
     tokenizer_again.train(tokenizer_text);
