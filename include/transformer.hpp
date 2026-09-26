@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <iosfwd>
 #include <vector>
 
 class TransformerBlock {
@@ -17,6 +18,9 @@ public:
     std::vector<std::vector<float>> forward(
         const std::vector<std::vector<float>>& embeddings,
         const std::vector<float>& attention_weights) const;
+
+    bool save(std::ostream& output) const;
+    bool load(std::istream& input);
 
 private:
     using Matrix = std::vector<std::vector<float>>;
