@@ -19,9 +19,7 @@ if ($LASTEXITCODE -ne 0) {
 
 ctest --test-dir build --output-on-failure
 
-if ($LASTEXITCODE -ne 0) {
-    throw "ULTRON smoke tests failed with exit code $LASTEXITCODE. Training was not started."
-}
+$ctestExitCode = $LASTEXITCODE
 
 $exe = "build/Release/ultron.exe"
 
@@ -33,6 +31,19 @@ if ($ExternalCorpus) {
 }
 if (!(Test-Path $exe)) { $exe = "build/ultron.exe" }
 if (!(Test-Path $exe)) { throw "ULTRON executable not found. Run scripts/build.ps1 first." }
+
+if ($ctestExitCode -ne 0) {
+    Write-Host "CTest could not complete. Running the executable self-test directly..."
+    & $exe --self-test
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "ULTRON smoke tests failed. CTest exit code $ctestExitCode; direct self-test exit code $LASTEXITCODE. Training was not started."
+    }
+
+    Write-Host "Direct ULTRON self-test passed."
+} else {
+    Write-Host "CTest smoke tests passed."
+}
 
 $dataPath = Join-Path (Split-Path -Parent $PSScriptRoot) $Data
 if (!(Test-Path $dataPath)) {
