@@ -26,6 +26,8 @@ struct Options {
     std::size_t top_k = 8;
     unsigned int seed = 42;
     std::size_t save_every = 0;
+    std::size_t speed = 1;
+    bool speed_set = false;
     bool self_test = false;
     bool online_learning = false;
     bool interactive = true;
@@ -85,6 +87,10 @@ Options parse(int argc, char** argv) {
         } else if (argument == "--save-every") {
             options.save_every = std::stoull(
                 value_after(i, argc, argv, "--save-every"));
+        } else if (argument == "--speed") {
+            options.speed = std::stoull(
+                value_after(i, argc, argv, "--speed"));
+            options.speed_set = true;
         } else if (argument == "--self-test") {
             options.self_test = true;
         } else if (argument == "--online-learning") {
@@ -105,6 +111,7 @@ Options parse(int argc, char** argv) {
                 << "--max-tokens N --temperature T\n"
                 << "--top-k K --seed N\n"
                 << "--save-every N\n"
+                << "--speed N (1=full training, 10=fastest)\n"
                 << "--self-test\n"
                 << "--online-learning --no-online-learning\n"
                 << "--non-interactive\n";
@@ -176,6 +183,24 @@ int main(int argc, char** argv) {
         ConversationStore conversations;
         DictionaryClient dictionary;
 
+        if (!options.train_file.empty() && !options.speed_set && options.interactive) {
+            std::cout
+                << "Training speed 1-10 "
+                << "(1 = full training, 10 = fastest): ";
+            std::string speed_input;
+            if (!std::getline(std::cin, speed_input)) {
+                throw std::runtime_error("No training speed was provided.");
+            }
+            options.speed = std::stoull(speed_input);
+            if (options.speed < 1 || options.speed > 10) {
+                throw std::invalid_argument("Training speed must be between 1 and 10.");
+            }
+        }
+
+        if (options.speed < 1 || options.speed > 10) {
+            throw std::invalid_argument("Training speed must be between 1 and 10.");
+        }
+
         if (!options.load_file.empty()) {
             if (!model.load_checkpoint(
                     options.load_file)) {
@@ -197,7 +222,9 @@ int main(int argc, char** argv) {
             std::cout
                 << "Training for "
                 << options.epochs
-                << " epoch(s)...\n";
+                << " epoch(s) at speed "
+                << options.speed
+                << "/10...\n";
 
             const auto checkpoint_progress =
                 [&](std::size_t epoch, float) {
@@ -225,7 +252,8 @@ int main(int argc, char** argv) {
                     text,
                     options.epochs,
                     options.learning_rate,
-                    checkpoint_progress);
+                    checkpoint_progress,
+                    options.speed);
 
             std::cout
                 << "Training complete. Mean loss: "
