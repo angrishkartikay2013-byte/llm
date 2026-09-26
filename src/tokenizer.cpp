@@ -66,6 +66,131 @@ std::uint64_t pair_key(
            static_cast<std::uint32_t>(right);
 }
 
+std::vector<std::string> Tokenizer::legacy_split(
+    const std::string& text,
+    bool preserve_layout) {
+
+    std::vector<std::string> tokens;
+    std::string current;
+    std::string pending_whitespace;
+
+    const auto flush_word = [&]() {
+        if (current.empty()) {
+            return;
+        }
+
+        std::string token;
+
+        if (preserve_layout) {
+            token = pending_whitespace;
+        }
+
+        for (const char c : current) {
+            token += static_cast<char>(
+                std::tolower(
+                    static_cast<unsigned char>(c)));
+        }
+
+        tokens.push_back(std::move(token));
+        current.clear();
+        pending_whitespace.clear();
+    };
+
+    const auto is_punctuation = [](char c) {
+        return c == '.' || c == ',' || c == '!' || c == '?' ||
+               c == ':' || c == ';' || c == '(' || c == ')' ||
+               c == '[' || c == ']' || c == '{' || c == '}' ||
+               c == '"' || c == '\'' || c == '-' || c == '/' ||
+               c == '\\' || c == '+' || c == '=' || c == '*' ||
+               c == '&' || c == '%' || c == '#' || c == '@';
+    };
+
+    const auto is_word_char = [](char c) {
+        return std::isalnum(
+                   static_cast<unsigned char>(c)) != 0 ||
+               c == '_';
+    };
+
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        const char c = text[i];
+
+        if (c == '\r' || c == '\n' || c == '\t' || c == ' ') {
+            flush_word();
+
+            if (!preserve_layout) {
+                continue;
+            }
+
+            if (c == '\r') {
+                if (i + 1 < text.size() && text[i + 1] == '\n') {
+                    continue;
+                }
+
+                if (pending_whitespace.empty() ||
+                    pending_whitespace.back() != '\n') {
+                    pending_whitespace.push_back('\n');
+                }
+            } else if (c == '\n') {
+                if (pending_whitespace.empty() ||
+                    pending_whitespace.back() != '\n') {
+                    pending_whitespace.push_back('\n');
+                }
+            } else {
+                if (pending_whitespace.empty() ||
+                    (pending_whitespace.back() != ' ' &&
+                     pending_whitespace.back() != '\n')) {
+                    pending_whitespace.push_back(' ');
+                }
+            }
+
+            continue;
+        }
+
+        const bool apostrophe_inside =
+            c == '\'' &&
+            i > 0 &&
+            i + 1 < text.size() &&
+            is_word_char(text[i - 1]) &&
+            is_word_char(text[i + 1]);
+
+        const bool hyphen_inside =
+            c == '-' &&
+            i > 0 &&
+            i + 1 < text.size() &&
+            is_word_char(text[i - 1]) &&
+            is_word_char(text[i + 1]);
+
+        if (is_punctuation(c) &&
+            !apostrophe_inside &&
+            !hyphen_inside) {
+
+            flush_word();
+
+            std::string punctuation;
+
+            const bool keep_space_before =
+                preserve_layout &&
+                !pending_whitespace.empty() &&
+                (c == '(' || c == '[' || c == '{' ||
+                 c == '"' || c == '\'');
+
+            if (keep_space_before) {
+                punctuation = pending_whitespace;
+            }
+
+            punctuation += c;
+            tokens.push_back(std::move(punctuation));
+            pending_whitespace.clear();
+            continue;
+        }
+
+        current += c;
+    }
+
+    flush_word();
+    return tokens;
+}
+
 }
 
 Tokenizer::Tokenizer() {
