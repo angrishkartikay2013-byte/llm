@@ -60,7 +60,7 @@ The smoke tests now cover tensor math, BPE round-tripping, tokenizer serializati
 
 The safest first experiment after a tokenizer/model upgrade is:
 
-    .\scripts\train.ps1 -Fresh -Epochs 20
+    .\scripts\train.ps1 -Fresh -Epochs 20 -SaveEvery 10
 
 The script uses models/ultron_bpe.bin by default so an older models/ultron.bin checkpoint cannot accidentally become the starting point.
 
@@ -84,7 +84,7 @@ Direct CLI continuation is explicit:
 
 The PowerShell training script now resumes automatically when its checkpoint already exists:
 
-    .\scripts\train.ps1 -Epochs 20
+    .\scripts\train.ps1 -Epochs 20 -SaveEvery 10
 
 Use:
 
@@ -124,11 +124,11 @@ Explicit teaching is supported:
 
 The explicit teach path writes a learned question-answer association into the checkpoint so that exact taught questions can be recalled reliably.
 
-Automatic online learning is intentionally separate from clean inference. For experiments and evaluation, use:
+Automatic online learning is disabled by default and intentionally separate from clean inference. To enable it explicitly, use:
 
-    --no-online-learning
+    --online-learning
 
-This avoids immediately training on ULTRON's own possibly incorrect generated responses.
+For clean experiments, use --no-online-learning explicitly as well. This avoids immediately training on ULTRON's own possibly incorrect generated responses.
 
 ## Evaluation
 
@@ -148,7 +148,7 @@ Then:
 
     .\scripts\train.ps1 -ExternalCorpus -Epochs 1
 
-The training script resumes an existing checkpoint unless -Fresh is supplied.
+The training script resumes an existing checkpoint unless -Fresh is supplied. It saves a recovery checkpoint every 10 epochs by default.
 
 ## Ollama teacher
 
