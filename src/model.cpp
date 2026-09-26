@@ -740,16 +740,20 @@ float ULTRONModel::train(
                     auto& local_output_gradients =
                         thread_output_gradients[worker_index];
 
+                    std::vector<float> current_logits(
+                        impl_->output_weights.size(),
+                        0.0f);
+
+                    std::vector<float> probabilities(
+                        impl_->output_weights.size(),
+                        0.0f);
+
                     for (std::size_t position = begin;
                          position < end;
                          ++position) {
 
                         const auto& hidden =
                             hidden_states[position];
-
-                        std::vector<float> current_logits(
-                            impl_->output_weights.size(),
-                            0.0f);
 
                         for (std::size_t token = 0;
                              token < impl_->output_weights.size();
@@ -773,9 +777,9 @@ float ULTRONModel::train(
                             current_logits[token] = dot;
                         }
 
-                        const auto probabilities =
-                            ultron_softmax(
-                                current_logits);
+                        ultron_softmax_into(
+                            current_logits,
+                            probabilities);
 
                         const std::size_t target =
                             static_cast<std::size_t>(
