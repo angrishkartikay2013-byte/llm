@@ -24,7 +24,7 @@ constexpr std::size_t kEmbeddingSize = 32;
 constexpr std::size_t kHeads = 4;
 constexpr std::size_t kFeedForwardSize = 128;
 constexpr std::size_t kTransformerLayers = 2;
-constexpr std::size_t kMaxSequenceLength = 128;
+constexpr std::size_t kMaxSequenceLength = 256;
 
 bool write_u64(std::ostream& output, std::uint64_t value) {
     output.write(reinterpret_cast<const char*>(&value), sizeof(value));
