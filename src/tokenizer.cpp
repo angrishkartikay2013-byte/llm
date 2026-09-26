@@ -66,6 +66,8 @@ std::uint64_t pair_key(
            static_cast<std::uint32_t>(right);
 }
 
+}
+
 std::vector<std::string> Tokenizer::legacy_split(
     const std::string& text,
     bool preserve_layout) {
@@ -189,8 +191,6 @@ std::vector<std::string> Tokenizer::legacy_split(
 
     flush_word();
     return tokens;
-}
-
 }
 
 Tokenizer::Tokenizer() {
