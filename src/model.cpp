@@ -207,6 +207,11 @@ public:
                 kEmbeddingSize,
                 0.0f));
 
+        // A vocabulary resize invalidates the old output/embedding optimizer
+        // state because their parameter vectors have changed shape.
+        output_optimizer.reset();
+        embedding_optimizer.reset();
+
         std::mt19937 generator(91);
         const float limit =
             std::sqrt(
@@ -477,6 +482,11 @@ public:
     std::vector<std::vector<float>> output_weights;
     std::vector<std::vector<float>> positional;
     std::unordered_map<std::string, std::string> learned_answers;
+
+    std::unique_ptr<AdamOptimizer> output_optimizer;
+    std::unique_ptr<AdamOptimizer> transformer_optimizer;
+    std::unique_ptr<AdamOptimizer> transformer2_optimizer;
+    std::unique_ptr<AdamOptimizer> embedding_optimizer;
 };
 
 ULTRONModel::ULTRONModel()
@@ -540,21 +550,53 @@ float ULTRONModel::train(
     impl_->embedding.get_parameters(
         embedding_parameters);
 
-    AdamOptimizer output_optimizer(
-        output_parameters.size(),
-        learning_rate);
+    if (!impl_->output_optimizer ||
+        impl_->output_optimizer->parameter_count() !=
+            output_parameters.size()) {
+        impl_->output_optimizer =
+            std::make_unique<AdamOptimizer>(
+                output_parameters.size(),
+                learning_rate);
+    } else {
+        impl_->output_optimizer->set_learning_rate(
+            learning_rate);
+    }
 
-    AdamOptimizer transformer_optimizer(
-        transformer_parameters.size(),
-        learning_rate * 0.5f);
+    if (!impl_->transformer_optimizer ||
+        impl_->transformer_optimizer->parameter_count() !=
+            transformer_parameters.size()) {
+        impl_->transformer_optimizer =
+            std::make_unique<AdamOptimizer>(
+                transformer_parameters.size(),
+                learning_rate * 0.5f);
+    } else {
+        impl_->transformer_optimizer->set_learning_rate(
+            learning_rate * 0.5f);
+    }
 
-    AdamOptimizer transformer2_optimizer(
-        transformer2_parameters.size(),
-        learning_rate * 0.5f);
+    if (!impl_->transformer2_optimizer ||
+        impl_->transformer2_optimizer->parameter_count() !=
+            transformer2_parameters.size()) {
+        impl_->transformer2_optimizer =
+            std::make_unique<AdamOptimizer>(
+                transformer2_parameters.size(),
+                learning_rate * 0.5f);
+    } else {
+        impl_->transformer2_optimizer->set_learning_rate(
+            learning_rate * 0.5f);
+    }
 
-    AdamOptimizer embedding_optimizer(
-        embedding_parameters.size(),
-        learning_rate * 0.5f);
+    if (!impl_->embedding_optimizer ||
+        impl_->embedding_optimizer->parameter_count() !=
+            embedding_parameters.size()) {
+        impl_->embedding_optimizer =
+            std::make_unique<AdamOptimizer>(
+                embedding_parameters.size(),
+                learning_rate * 0.5f);
+    } else {
+        impl_->embedding_optimizer->set_learning_rate(
+            learning_rate * 0.5f);
+    }
 
     float last_epoch_loss = 0.0f;
 
@@ -800,19 +842,19 @@ float ULTRONModel::train(
                 embedding_gradients,
                 5.0f);
 
-            output_optimizer.step(
+            impl_->output_optimizer->step(
                 output_parameters,
                 output_gradients);
 
-            transformer_optimizer.step(
+            impl_->transformer_optimizer->step(
                 transformer_parameters,
                 transformer_gradients_flat);
 
-            transformer2_optimizer.step(
+            impl_->transformer2_optimizer->step(
                 transformer2_parameters,
                 transformer2_gradients_flat);
 
-            embedding_optimizer.step(
+            impl_->embedding_optimizer->step(
                 embedding_parameters,
                 embedding_gradients);
 
@@ -1094,7 +1136,7 @@ bool ULTRONModel::save_checkpoint(
     const char magic[] = "ULTRON1";
     output.write(magic, sizeof(magic) - 1);
 
-    if (!write_u64(output, 5) ||
+    if (!write_u64(output, 6) ||
         !impl_->tokenizer.save(output) ||
         !impl_->embedding.save(output) ||
         !impl_->transformer.save(output) ||
@@ -1145,6 +1187,24 @@ bool ULTRONModel::save_checkpoint(
         }
     }
 
+    const auto save_optimizer =
+        [&](const std::unique_ptr<AdamOptimizer>& optimizer) {
+            if (!write_u64(
+                    output,
+                    optimizer ? 1ULL : 0ULL)) {
+                return false;
+            }
+
+            return !optimizer || optimizer->save(output);
+        };
+
+    if (!save_optimizer(impl_->output_optimizer) ||
+        !save_optimizer(impl_->transformer_optimizer) ||
+        !save_optimizer(impl_->transformer2_optimizer) ||
+        !save_optimizer(impl_->embedding_optimizer)) {
+        return false;
+    }
+
     return true;
 }
 
@@ -1171,7 +1231,7 @@ bool ULTRONModel::load_checkpoint(
     std::uint64_t version = 0;
 
     if (!read_u64(input, version) ||
-        (version != 4 && version != 5)) {
+        (version != 4 && version != 5 && version != 6)) {
         return false;
     }
 
@@ -1265,6 +1325,67 @@ bool ULTRONModel::load_checkpoint(
         }
     }
 
+    std::unique_ptr<AdamOptimizer> output_optimizer;
+    std::unique_ptr<AdamOptimizer> transformer_optimizer;
+    std::unique_ptr<AdamOptimizer> transformer2_optimizer;
+    std::unique_ptr<AdamOptimizer> embedding_optimizer;
+
+    if (version >= 6) {
+        const auto load_optimizer =
+            [&](std::size_t parameter_count)
+                -> std::unique_ptr<AdamOptimizer> {
+
+                std::uint64_t present = 0;
+
+                if (!read_u64(input, present) ||
+                    present > 1) {
+                    return nullptr;
+                }
+
+                if (present == 0) {
+                    return std::unique_ptr<AdamOptimizer>{};
+                }
+
+                auto optimizer =
+                    std::make_unique<AdamOptimizer>(
+                        parameter_count,
+                        0.001f);
+
+                if (!optimizer->load(input)) {
+                    return nullptr;
+                }
+
+                return optimizer;
+            };
+
+        output_optimizer =
+            load_optimizer(
+                weights.size() * kEmbeddingSize);
+
+        if (weights.empty() ||
+            !output_optimizer) {
+            return false;
+        }
+
+        transformer_optimizer =
+            load_optimizer(
+                transformer.parameter_count());
+
+        transformer2_optimizer =
+            load_optimizer(
+                transformer2.parameter_count());
+
+        embedding_optimizer =
+            load_optimizer(
+                embedding.parameter_count());
+
+        if (!transformer_optimizer ||
+            !transformer2_optimizer ||
+            !embedding_optimizer) {
+            return false;
+        }
+    }
+
     impl_->tokenizer = std::move(tokenizer);
     impl_->embedding = std::move(embedding);
 
@@ -1277,6 +1398,15 @@ bool ULTRONModel::load_checkpoint(
         std::move(weights);
     impl_->learned_answers =
         std::move(learned_answers);
+
+    impl_->output_optimizer =
+        std::move(output_optimizer);
+    impl_->transformer_optimizer =
+        std::move(transformer_optimizer);
+    impl_->transformer2_optimizer =
+        std::move(transformer2_optimizer);
+    impl_->embedding_optimizer =
+        std::move(embedding_optimizer);
 
     return true;
 }
