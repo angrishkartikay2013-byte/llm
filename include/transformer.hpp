@@ -93,3 +93,10 @@ private:
         const Matrix& feed_forward_in,
         const Matrix& feed_forward_out);
 };
+
+/*
+ * Marks the current thread as an outer training worker. Transformer
+ * internals then avoid spawning nested worker threads, allowing independent
+ * training windows to use the CPU without thread oversubscription.
+ */
+void ultron_set_nested_parallel_worker(bool active);
