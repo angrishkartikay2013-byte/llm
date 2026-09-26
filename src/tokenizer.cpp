@@ -6,6 +6,7 @@
 #include <istream>
 #include <limits>
 #include <ostream>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
@@ -383,6 +384,15 @@ void Tokenizer::learn_bpe(
         1 +
         kMaxMerges;
 
+    std::cout
+        << "[tokenizer] learning up to "
+        << kMaxMerges
+        << " BPE merges from "
+        << text.size()
+        << " bytes..."
+        << '\n';
+    std::cout.flush();
+
     while (merges_.size() < kMaxMerges &&
            id_to_token_.size() < max_vocabulary) {
 
@@ -486,6 +496,18 @@ void Tokenizer::learn_bpe(
             best_left,
             best_right);
 
+        if (merges_.size() == 1 ||
+            merges_.size() % 64 == 0 ||
+            merges_.size() == kMaxMerges) {
+            std::cout
+                << "[tokenizer] BPE merges learned: "
+                << merges_.size()
+                << "/"
+                << kMaxMerges
+                << '\n';
+            std::cout.flush();
+        }
+
         for (auto& sequence : sequences) {
             std::vector<int> merged;
             merged.reserve(sequence.size());
@@ -508,6 +530,13 @@ void Tokenizer::learn_bpe(
             sequence.swap(merged);
         }
     }
+    std::cout
+        << "[tokenizer] BPE training complete | merges "
+        << merges_.size()
+        << " | vocabulary "
+        << id_to_token_.size()
+        << '\n';
+    std::cout.flush();
 }
 
 void Tokenizer::apply_merges(
