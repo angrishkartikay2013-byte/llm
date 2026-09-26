@@ -1449,3 +1449,64 @@ bool ULTRONModel::load_checkpoint(
 
                 return {true, std::move(optimizer)};
             };
+
+        auto loaded_output =
+            load_optimizer(
+                weights.size() * kEmbeddingSize);
+
+        auto loaded_transformer =
+            load_optimizer(
+                transformer.parameter_count());
+
+        auto loaded_transformer2 =
+            load_optimizer(
+                transformer2.parameter_count());
+
+        auto loaded_embedding =
+            load_optimizer(
+                embedding.parameter_count());
+
+        if (!loaded_output.valid ||
+            !loaded_transformer.valid ||
+            !loaded_transformer2.valid ||
+            !loaded_embedding.valid) {
+            return false;
+        }
+
+        output_optimizer =
+            std::move(loaded_output.optimizer);
+
+        transformer_optimizer =
+            std::move(loaded_transformer.optimizer);
+
+        transformer2_optimizer =
+            std::move(loaded_transformer2.optimizer);
+
+        embedding_optimizer =
+            std::move(loaded_embedding.optimizer);
+    }
+
+    impl_->tokenizer = std::move(tokenizer);
+    impl_->embedding = std::move(embedding);
+
+    impl_->transformer =
+        std::move(transformer);
+    impl_->transformer2 =
+        std::move(transformer2);
+
+    impl_->output_weights =
+        std::move(weights);
+    impl_->learned_answers =
+        std::move(learned_answers);
+
+    impl_->output_optimizer =
+        std::move(output_optimizer);
+    impl_->transformer_optimizer =
+        std::move(transformer_optimizer);
+    impl_->transformer2_optimizer =
+        std::move(transformer2_optimizer);
+    impl_->embedding_optimizer =
+        std::move(embedding_optimizer);
+
+    return true;
+}
