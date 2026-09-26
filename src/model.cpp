@@ -1133,6 +1133,30 @@ std::string ULTRONModel::generate(
         }
     }
 
+    const std::vector<std::string> stop_markers = {
+        "\nUSER:",
+        "\nQuestion:",
+        "\nAnswer:",
+        "\nULTRON:"
+    };
+
+    std::size_t cut = std::string::npos;
+
+    for (const std::string& marker : stop_markers) {
+        const std::size_t position =
+            generated_text.find(marker);
+
+        if (position != std::string::npos) {
+            cut = cut == std::string::npos
+                ? position
+                : std::min(cut, position);
+        }
+    }
+
+    if (cut != std::string::npos) {
+        return prompt + generated_text.substr(0, cut);
+    }
+
     return result.str();
 }
 
