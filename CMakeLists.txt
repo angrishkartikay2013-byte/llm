@@ -23,6 +23,7 @@ set(ULTRON_CORE_SOURCES
     src/optimizer.cpp
     src/trainer.cpp
     src/model.cpp
+    src/self_test.cpp
 )
 
 add_executable(ultron
