@@ -94,6 +94,24 @@ int run_ultron_smoke_tests() {
 
     assert(!generated.empty());
 
+    model.train(
+        "Question: what is the test answer?
+Answer: learned memory works.",
+        2,
+        0.001f);
+
+    const std::string learned =
+        model.generate(
+            "USER: What is the test answer?\nULTRON:",
+            8,
+            0.2f,
+            3,
+            42);
+
+    assert(
+        learned.find("learned memory works.") !=
+        std::string::npos);
+
     const std::string checkpoint =
         "ultron_smoke_checkpoint.bin";
     assert(model.save_checkpoint(checkpoint));
@@ -110,6 +128,18 @@ int run_ultron_smoke_tests() {
             42);
 
     assert(restored_text == generated);
+
+    const std::string restored_learned =
+        restored.generate(
+            "USER: What is the test answer?\nULTRON:",
+            8,
+            0.2f,
+            3,
+            42);
+
+    assert(
+        restored_learned.find("learned memory works.") !=
+        std::string::npos);
 
     std::remove(checkpoint.c_str());
 
