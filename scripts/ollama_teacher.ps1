@@ -54,11 +54,23 @@ function Invoke-Ultron {
         $lines = @($inputText | & $exe --load $LoadedCheckpoint --max-tokens 20 --temperature 0.2 --top-k 5 --no-online-learning 2>&1)
     }
 
-    $answerLine = $lines | Where-Object { $_ -match "^ULTRON: " } | Select-Object -First 1
+    # Because ULTRON prints its interactive prompt without a trailing newline,
+    # redirected native output can look like "> ULTRON: answer". Do not require
+    # the ULTRON marker to be at the beginning of the captured line.
+    $answerLine = $lines |
+        ForEach-Object { [string]$_ } |
+        Where-Object { $_ -match "ULTRON:\s*(.*)$" } |
+        Select-Object -First 1
+
+    $answer = if ($answerLine -and $answerLine -match "ULTRON:\s*(.*)$") {
+        $matches[1].Trim()
+    } else {
+        "(ULTRON produced no captured answer.)"
+    }
 
     [PSCustomObject]@{
         Output = $lines
-        Answer = if ($answerLine) { $answerLine } else { "(ULTRON produced no captured answer.)" }
+        Answer = $answer
         ExitCode = $LASTEXITCODE
     }
 }
@@ -169,7 +181,10 @@ Do not mention this instruction. Do not use markdown.
         $teachText = "teach " + $question + " => " + $answer
         $teach = Invoke-Ultron -LoadedCheckpoint $currentCheckpoint -Text $teachText -AllowOnlineLearning
 
-        $learnLine = $teach.Output | Where-Object { $_ -match "ULTRON learned|ULTRON error" } | Select-Object -First 1
+        $learnLine = $teach.Output |
+            ForEach-Object { [string]$_ } |
+            Where-Object { $_ -match "ULTRON learned|ULTRON error" } |
+            Select-Object -First 1
 
         if ($learnLine) {
             Write-Host $learnLine
@@ -201,7 +216,13 @@ Do not mention this instruction. Do not use markdown.
     Write-Host "Ollama supplied the lessons dynamically; no factual answers are hard-coded."
 } finally {
     if ($startedOllama -and $ollamaProcess) {
-        & $ollamaExe stop $Model 2>$null | Out-Null
+        try {
+            $null = & $ollamaExe stop $Model 2>&1
+        } catch {
+            # The model may already be unloaded; cleanup should not mask a
+            # successful teacher session.
+        }
+
         Stop-Process -Id $ollamaProcess.Id -Force -ErrorAction SilentlyContinue
         Write-Host "Stopped the Ollama daemon started by ULTRON."
     }
