@@ -98,10 +98,10 @@ int run_ultron_smoke_tests() {
 
     // Boundary-aware BPE must keep whitespace, punctuation, and newlines
     // as explicit layout boundaries rather than merging them into words.
-    const layout_text =
+    const std::string layout_text =
         "Hello, world!\nThis is a test.\nI'm ready.";
 
-    const layout_tokens =
+    const auto layout_tokens =
         tokenizer.encode(layout_text);
 
     assert(
