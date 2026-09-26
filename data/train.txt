@@ -46,7 +46,7 @@ Answer: causal masking prevents cheating by hiding future tokens.
 Hello ULTRON.
 Hello there.
 Hi ULTRON.
-How are you.
+How are you?
 I am learning from text.
 I am a small language model.
 I predict the next token.
@@ -207,7 +207,7 @@ A sentence should not become one unbroken string of words.
 "Really? What happened?" contains normal spacing around two questions.
 "Hello! How are you?" keeps the exclamation mark attached to "Hello".
 A quotation mark touches the quoted words.
-"She said, "Hello."" keeps the quoted sentence together.
+She said, "Hello." keeps the quoted sentence together.
 Parentheses touch the text inside them.
 "Please wait (carefully)." places no extra space inside the parentheses.
 A hyphen joins parts of a compound word.
