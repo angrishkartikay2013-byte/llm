@@ -492,6 +492,27 @@ std::string ULTRONModel::generate(
                 raw_logits[i] / temperature;
         }
 
+        // Reduce pathological repetition during sampling while keeping
+        // the model's learned probability distribution mostly intact.
+        constexpr float repetition_penalty = 1.15f;
+
+        for (const int previous_token : tokens) {
+            if (previous_token < 0) continue;
+
+            const std::size_t token_id =
+                static_cast<std::size_t>(previous_token);
+
+            if (token_id >= scaled_logits.size()) continue;
+
+            if (scaled_logits[token_id] >= 0.0f) {
+                scaled_logits[token_id] /=
+                    repetition_penalty;
+            } else {
+                scaled_logits[token_id] *=
+                    repetition_penalty;
+            }
+        }
+
         std::vector<std::size_t> candidates(
             scaled_logits.size());
 
