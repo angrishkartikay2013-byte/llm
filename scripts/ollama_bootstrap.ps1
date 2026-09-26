@@ -3,7 +3,7 @@ param(
     [int]$Batches = 1,
     [int]$SentencesPerBatch = 30,
     [int]$Epochs = 1,
-    [double]$LearningRate = 0.003,
+    [double]$LearningRate = 0.001,
     [string]$Output = "data/external/ollama_distill.txt",
     [string]$Checkpoint = "models/ultron_bpe.bin",
     [switch]$Fresh
@@ -142,6 +142,12 @@ if (!(Test-Path $exe)) {
 }
 if (!(Test-Path $exe)) {
     throw "ULTRON executable not found. Build it first."
+}
+
+ctest --test-dir (Join-Path $repoRoot "build") --output-on-failure
+
+if ($LASTEXITCODE -ne 0) {
+    throw "ULTRON smoke tests failed. Ollama distillation training was not started."
 }
 
 Write-Host "Training ULTRON on the Ollama-generated corpus..."
