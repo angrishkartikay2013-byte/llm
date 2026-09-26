@@ -62,6 +62,26 @@ public:
         const std::size_t vocabulary =
             tokenizer.vocabulary_size();
 
+        const std::size_t old_vocabulary =
+            embedding.vocabulary_size();
+
+        if (vocabulary == old_vocabulary) {
+            return;
+        }
+
+        std::vector<std::vector<float>> old_embeddings;
+        old_embeddings.reserve(old_vocabulary);
+
+        for (std::size_t token = 0;
+             token < old_vocabulary;
+             ++token) {
+            old_embeddings.push_back(
+                embedding.lookup(token));
+        }
+
+        const auto old_output_weights =
+            output_weights;
+
         embedding =
             Embedding(
                 vocabulary,
@@ -88,6 +108,21 @@ public:
         for (auto& row : output_weights) {
             for (float& value : row) {
                 value = distribution(generator);
+            }
+        }
+
+        const std::size_t preserved =
+            std::min(old_vocabulary, vocabulary);
+
+        for (std::size_t token = 0;
+             token < preserved;
+             ++token) {
+            embedding.lookup_mutable(token) =
+                old_embeddings[token];
+
+            if (token < old_output_weights.size()) {
+                output_weights[token] =
+                    old_output_weights[token];
             }
         }
     }
@@ -225,10 +260,6 @@ float ULTRONModel::train(
         output_parameter_count,
         learning_rate);
 
-    AdamOptimizer embedding_optimizer(
-        kEmbeddingSize,
-        learning_rate * 0.5f);
-
     std::vector<float> weights(output_parameter_count);
     std::vector<float> gradients(output_parameter_count);
 
@@ -250,23 +281,21 @@ float ULTRONModel::train(
          epoch < epochs;
          ++epoch) {
 
+        // Compute the Transformer once for the complete sequence.
+        // The previous implementation recomputed every prefix separately.
+        const auto hidden_states =
+            impl_->encode_context(tokens);
+
+        if (hidden_states.empty()) {
+            continue;
+        }
+
         for (std::size_t position = 0;
              position + 1 < tokens.size();
              ++position) {
 
-            std::vector<int> context(
-                tokens.begin(),
-                tokens.begin() +
-                    static_cast<std::ptrdiff_t>(
-                        position + 1));
-
-            const auto hidden_states =
-                impl_->encode_context(context);
-
-            if (hidden_states.empty()) continue;
-
             const auto& hidden =
-                hidden_states.back();
+                hidden_states[position];
 
             std::vector<float> current_logits(
                 impl_->output_weights.size(),
@@ -310,42 +339,31 @@ float ULTRONModel::train(
                 target,
                 gradients);
 
-            std::vector<float> hidden_gradient(
-                kEmbeddingSize,
-                0.0f);
-
-            for (std::size_t token = 0;
-                 token < probabilities.size();
-                 ++token) {
-
-                const float error =
-                    probabilities[token] -
-                    (token == target ? 1.0f : 0.0f);
-
-                for (std::size_t dimension = 0;
-                     dimension < kEmbeddingSize;
-                     ++dimension) {
-
-                    hidden_gradient[dimension] +=
-                        error *
-                        weights[
-                            token * kEmbeddingSize +
-                            dimension];
-                }
-            }
-
-            const std::size_t input_token =
-                static_cast<std::size_t>(
-                    std::max(tokens[position], 0));
-
-            embedding_optimizer.step(
-                impl_->embedding.lookup_mutable(
-                    input_token),
-                hidden_gradient);
-
+            // The current engine does not yet have a complete Transformer
+            // backward pass. Keep training the output projection here rather
+            // than pretending that the output gradient is an exact embedding
+            // gradient through attention and layer normalization.
             output_optimizer.step(
                 weights,
                 gradients);
+        }
+
+        if ((epoch + 1) == epochs ||
+            (epoch + 1) % 5 == 0) {
+            const double mean_loss =
+                samples == 0
+                    ? 0.0
+                    : total_loss /
+                        static_cast<double>(samples);
+
+            std::cout
+                << "epoch "
+                << (epoch + 1)
+                << "/"
+                << epochs
+                << " loss="
+                << mean_loss
+                << '\n';
         }
     }
 
