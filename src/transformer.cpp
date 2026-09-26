@@ -483,13 +483,38 @@ std::vector<std::vector<float>> TransformerBlock::forward(
     std::vector<std::vector<float>> values(
         sequence_length);
 
-    for (std::size_t i = 0; i < sequence_length; ++i) {
-        queries[i] =
-            linear(embeddings[i], query_weight_);
-        keys[i] =
-            linear(embeddings[i], key_weight_);
-        values[i] =
-            linear(embeddings[i], value_weight_);
+    const std::size_t qkv_threads =
+        transformer_thread_count(sequence_length);
+
+    std::vector<std::thread> qkv_workers;
+    qkv_workers.reserve(qkv_threads);
+
+    for (std::size_t worker = 0;
+         worker < qkv_threads;
+         ++worker) {
+
+        qkv_workers.emplace_back(
+            [&, worker]() {
+                const std::size_t begin =
+                    (sequence_length * worker) / qkv_threads;
+                const std::size_t end =
+                    (sequence_length * (worker + 1)) / qkv_threads;
+
+                for (std::size_t i = begin;
+                     i < end;
+                     ++i) {
+                    queries[i] =
+                        linear(embeddings[i], query_weight_);
+                    keys[i] =
+                        linear(embeddings[i], key_weight_);
+                    values[i] =
+                        linear(embeddings[i], value_weight_);
+                }
+            });
+    }
+
+    for (auto& worker : qkv_workers) {
+        worker.join();
     }
 
     std::vector<std::vector<std::vector<float>>> attention_weights(
@@ -508,81 +533,106 @@ std::vector<std::vector<float>> TransformerBlock::forward(
         std::sqrt(
             static_cast<float>(head_size_));
 
-    for (std::size_t query = 0;
-         query < sequence_length;
-         ++query) {
+    const std::size_t attention_threads =
+        transformer_thread_count(sequence_length);
 
-        for (std::size_t head = 0;
-             head < num_heads_;
-             ++head) {
+    std::vector<std::thread> attention_workers;
+    attention_workers.reserve(attention_threads);
 
-            const std::size_t offset =
-                head * head_size_;
+    for (std::size_t worker = 0;
+         worker < attention_threads;
+         ++worker) {
 
-            std::vector<float> scores(query + 1, 0.0f);
+        attention_workers.emplace_back(
+            [&, worker]() {
+                const std::size_t begin =
+                    (sequence_length * worker) / attention_threads;
+                const std::size_t end =
+                    (sequence_length * (worker + 1)) / attention_threads;
 
-            float max_score =
-                -std::numeric_limits<float>::infinity();
+                for (std::size_t query = begin;
+                     query < end;
+                     ++query) {
 
-            for (std::size_t key = 0;
-                 key <= query;
-                 ++key) {
+                    for (std::size_t head = 0;
+                         head < num_heads_;
+                         ++head) {
 
-                float dot = 0.0f;
+                        const std::size_t offset =
+                            head * head_size_;
 
-                for (std::size_t d = 0;
-                     d < head_size_;
-                     ++d) {
-                    dot +=
-                        queries[query][offset + d] *
-                        keys[key][offset + d];
+                        std::vector<float> scores(
+                            query + 1,
+                            0.0f);
+
+                        float max_score =
+                            -std::numeric_limits<float>::infinity();
+
+                        for (std::size_t key = 0;
+                             key <= query;
+                             ++key) {
+
+                            float dot = 0.0f;
+
+                            for (std::size_t d = 0;
+                                 d < head_size_;
+                                 ++d) {
+                                dot +=
+                                    queries[query][offset + d] *
+                                    keys[key][offset + d];
+                            }
+
+                            scores[key] =
+                                dot * scale;
+
+                            max_score =
+                                std::max(
+                                    max_score,
+                                    scores[key]);
+                        }
+
+                        float sum = 0.0f;
+
+                        for (float& score : scores) {
+                            score =
+                                std::exp(
+                                    score - max_score);
+                            sum += score;
+                        }
+
+                        if (sum <= 0.0f) {
+                            throw std::runtime_error(
+                                "Attention softmax normalization failed");
+                        }
+
+                        attention_weights[query][head].resize(
+                            query + 1);
+
+                        for (std::size_t key = 0;
+                             key <= query;
+                             ++key) {
+
+                            const float weight =
+                                scores[key] / sum;
+
+                            attention_weights[query][head][key] =
+                                weight;
+
+                            for (std::size_t d = 0;
+                                 d < head_size_;
+                                 ++d) {
+                                attention_concat[query][offset + d] +=
+                                    weight *
+                                    values[key][offset + d];
+                            }
+                        }
+                    }
                 }
+            });
+    }
 
-                scores[key] =
-                    dot * scale;
-
-                max_score =
-                    std::max(
-                        max_score,
-                        scores[key]);
-            }
-
-            float sum = 0.0f;
-
-            for (float& score : scores) {
-                score =
-                    std::exp(
-                        score - max_score);
-                sum += score;
-            }
-
-            if (sum <= 0.0f) {
-                throw std::runtime_error(
-                    "Attention softmax normalization failed");
-            }
-
-            attention_weights[query][head].resize(
-                query + 1);
-
-            for (std::size_t key = 0;
-                 key <= query;
-                 ++key) {
-
-                const float weight =
-                    scores[key] / sum;
-
-                attention_weights[query][head][key] =
-                    weight;
-
-                for (std::size_t d = 0;
-                     d < head_size_;
-                     ++d) {
-                    attention_concat[query][offset + d] +=
-                        weight *
-                        values[key][offset + d];
-                }
-            }
-        }
+    for (auto& worker : attention_workers) {
+        worker.join();
     }
 
     std::vector<std::vector<float>> attention_residual(
@@ -629,44 +679,67 @@ std::vector<std::vector<float>> TransformerBlock::forward(
     std::vector<std::vector<float>> output(
         sequence_length);
 
-    for (std::size_t i = 0;
-         i < sequence_length;
-         ++i) {
+    const std::size_t ffn_threads =
+        transformer_thread_count(sequence_length);
 
-        ffn_pre[i] =
-            linear(
-                norm1[i],
-                feed_forward_in_);
+    std::vector<std::thread> ffn_workers;
+    ffn_workers.reserve(ffn_threads);
 
-        ffn_activated[i].resize(
-            feed_forward_size_);
+    for (std::size_t worker = 0;
+         worker < ffn_threads;
+         ++worker) {
 
-        for (std::size_t j = 0;
-             j < feed_forward_size_;
-             ++j) {
-            ffn_activated[i][j] =
-                gelu(
-                    ffn_pre[i][j]);
-        }
+        ffn_workers.emplace_back(
+            [&, worker]() {
+                const std::size_t begin =
+                    (sequence_length * worker) / ffn_threads;
+                const std::size_t end =
+                    (sequence_length * (worker + 1)) / ffn_threads;
 
-        ffn_projected[i] =
-            linear(
-                ffn_activated[i],
-                feed_forward_out_);
+                for (std::size_t i = begin;
+                     i < end;
+                     ++i) {
 
-        ffn_residual[i] =
-            norm1[i];
+                    ffn_pre[i] =
+                        linear(
+                            norm1[i],
+                            feed_forward_in_);
 
-        for (std::size_t dimension = 0;
-             dimension < embedding_size_;
-             ++dimension) {
-            ffn_residual[i][dimension] +=
-                ffn_projected[i][dimension];
-        }
+                    ffn_activated[i].resize(
+                        feed_forward_size_);
 
-        output[i] =
-            layer_norm(
-                ffn_residual[i]);
+                    for (std::size_t j = 0;
+                         j < feed_forward_size_;
+                         ++j) {
+                        ffn_activated[i][j] =
+                            gelu(
+                                ffn_pre[i][j]);
+                    }
+
+                    ffn_projected[i] =
+                        linear(
+                            ffn_activated[i],
+                            feed_forward_out_);
+
+                    ffn_residual[i] =
+                        norm1[i];
+
+                    for (std::size_t dimension = 0;
+                         dimension < embedding_size_;
+                         ++dimension) {
+                        ffn_residual[i][dimension] +=
+                            ffn_projected[i][dimension];
+                    }
+
+                    output[i] =
+                        layer_norm(
+                            ffn_residual[i]);
+                }
+            });
+    }
+
+    for (auto& worker : ffn_workers) {
+        worker.join();
     }
 
     return output;
@@ -745,21 +818,44 @@ void TransformerBlock::backward(
             embedding_size_,
             0.0f));
 
-    for (std::size_t i = 0;
-         i < sequence_length;
-         ++i) {
-        queries[i] =
-            linear(
-                embeddings[i],
-                query_weight_);
-        keys[i] =
-            linear(
-                embeddings[i],
-                key_weight_);
-        values[i] =
-            linear(
-                embeddings[i],
-                value_weight_);
+    const std::size_t backward_qkv_threads =
+        transformer_thread_count(sequence_length);
+
+    std::vector<std::thread> backward_qkv_workers;
+    backward_qkv_workers.reserve(backward_qkv_threads);
+
+    for (std::size_t worker = 0;
+         worker < backward_qkv_threads;
+         ++worker) {
+
+        backward_qkv_workers.emplace_back(
+            [&, worker]() {
+                const std::size_t begin =
+                    (sequence_length * worker) / backward_qkv_threads;
+                const std::size_t end =
+                    (sequence_length * (worker + 1)) / backward_qkv_threads;
+
+                for (std::size_t i = begin;
+                     i < end;
+                     ++i) {
+                    queries[i] =
+                        linear(
+                            embeddings[i],
+                            query_weight_);
+                    keys[i] =
+                        linear(
+                            embeddings[i],
+                            key_weight_);
+                    values[i] =
+                        linear(
+                            embeddings[i],
+                            value_weight_);
+                }
+            });
+    }
+
+    for (auto& worker : backward_qkv_workers) {
+        worker.join();
     }
 
     for (std::size_t query = 0;
