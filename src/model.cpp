@@ -506,10 +506,6 @@ float ULTRONModel::train(
             transformer_gradients,
             transformer_gradients_flat);
 
-        scale_in_place(
-            transformer_gradients_flat,
-            inverse_samples);
-
         std::vector<float> embedding_gradients(
             embedding_parameters.size(),
             0.0f);
@@ -549,8 +545,7 @@ float ULTRONModel::train(
                     token_id * kEmbeddingSize +
                     dimension] +=
                     grad_states[
-                        local_position][dimension] *
-                    inverse_samples;
+                        local_position][dimension];
             }
         }
 
