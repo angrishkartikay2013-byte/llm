@@ -336,6 +336,17 @@ void Tokenizer::learn_bpe(
                 continue;
             }
 
+            const std::string merged_token =
+                id_to_token_[
+                    static_cast<std::size_t>(left)] +
+                id_to_token_[
+                    static_cast<std::size_t>(right)];
+
+            if (token_to_id_.find(merged_token) !=
+                token_to_id_.end()) {
+                continue;
+            }
+
             if (entry.second > best_count ||
                 (entry.second == best_count &&
                  (left < best_left ||
@@ -366,9 +377,12 @@ void Tokenizer::learn_bpe(
             id_to_token_[static_cast<std::size_t>(
                 best_right)];
 
-        token_to_id_[left_token + right_token] = new_id;
+        const std::string merged_token =
+            left_token + right_token;
+
+        token_to_id_[merged_token] = new_id;
         id_to_token_.push_back(
-            left_token + right_token);
+            merged_token);
 
         merges_.emplace_back(
             best_left,
