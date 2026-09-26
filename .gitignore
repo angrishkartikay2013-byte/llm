@@ -1,0 +1,9 @@
+# Local model artifacts
+models/*.bin
+
+# Conversation history is personal runtime data
+data/conversations.txt
+
+# Downloaded external corpora
+data/external/*
+!data/external/.gitkeep
