@@ -1397,19 +1397,19 @@ bool ULTRONModel::load_checkpoint(
                 return {true, std::move(optimizer)};
             };
 
-        const auto loaded_output =
+        auto loaded_output =
             load_optimizer(
                 weights.size() * kEmbeddingSize);
 
-        const auto loaded_transformer =
+        auto loaded_transformer =
             load_optimizer(
                 transformer.parameter_count());
 
-        const auto loaded_transformer2 =
+        auto loaded_transformer2 =
             load_optimizer(
                 transformer2.parameter_count());
 
-        const auto loaded_embedding =
+        auto loaded_embedding =
             load_optimizer(
                 embedding.parameter_count());
 
