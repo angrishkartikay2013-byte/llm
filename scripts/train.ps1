@@ -3,6 +3,7 @@ param(
     [int]$Epochs = 5,
     [double]$LearningRate = 0.001,
     [string]$Checkpoint = "models/ultron_bpe.bin",
+    [string]$ValidationData = "data/validation.txt",
     [int]$SaveEvery = 10,
     [switch]$ExternalCorpus,
     [switch]$Fresh
@@ -33,12 +34,36 @@ if ($ExternalCorpus) {
 if (!(Test-Path $exe)) { $exe = "build/ultron.exe" }
 if (!(Test-Path $exe)) { throw "ULTRON executable not found. Run scripts/build.ps1 first." }
 
+$dataPath = Join-Path (Split-Path -Parent $PSScriptRoot) $Data
+if (!(Test-Path $dataPath)) {
+    throw "Training corpus not found: $Data"
+}
+
+$dataInfo = Get-Item $dataPath
+$lineCount = (Get-Content $dataPath | Measure-Object -Line).Lines
+Write-Host ("Training corpus: {0} bytes, {1} lines" -f $dataInfo.Length, $lineCount)
+
+if ($dataInfo.Length -lt 20000) {
+    throw "Training corpus is unexpectedly small. Refusing to start training."
+}
+
+if (!$ExternalCorpus) {
+    $rawText = Get-Content $dataPath -Raw
+    foreach ($required in @("USER:", "ULTRON:", "Hello,", "I'm", "?")) {
+        if ($rawText -notlike "*$required*") {
+            throw "Training corpus is missing expected language pattern: $required"
+        }
+    }
+}
+
 $arguments = @(
+
     "--train", $Data,
     "--epochs", $Epochs,
     "--lr", $LearningRate,
     "--save", $Checkpoint,
-    "--save-every", $SaveEvery
+    "--save-every", $SaveEvery,
+    "--non-interactive"
 )
 
 $checkpointPath = Join-Path (Split-Path -Parent $PSScriptRoot) $Checkpoint
@@ -61,8 +86,20 @@ if ($LASTEXITCODE -ne 0) {
 $evaluationArgs = @(
     "--load", $Checkpoint,
     "--eval", $Data,
-    "--no-online-learning"
+    "--no-online-learning",
+    "--non-interactive"
 )
+
+$validationPath = Join-Path (Split-Path -Parent $PSScriptRoot) $ValidationData
+if (Test-Path $validationPath) {
+    Write-Host ""
+    Write-Host "Evaluating held-out validation corpus..."
+    & $exe --load $Checkpoint --eval $ValidationData --no-online-learning --non-interactive
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "ULTRON validation evaluation failed with exit code $LASTEXITCODE."
+    }
+}
 
 Write-Host ""
 Write-Host "Evaluating saved checkpoint..."
