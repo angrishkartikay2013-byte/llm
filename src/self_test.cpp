@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <iostream>
 #include <sstream>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -68,6 +69,16 @@ int run_ultron_smoke_tests() {
         tokenizer.decode(encoded) ==
         unseen_text);
 
+    const std::size_t frozen_vocab =
+        tokenizer.vocabulary_size();
+
+    tokenizer.train(
+        "A completely different stream of new words arrives.");
+
+    assert(
+        tokenizer.vocabulary_size() ==
+        frozen_vocab);
+
     // Tokenizer serialization must preserve the learned merge table.
     std::stringstream tokenizer_stream(
         std::ios::in |
@@ -96,6 +107,49 @@ int run_ultron_smoke_tests() {
     assert(
         tokenizer_again.encode(unseen_text) ==
         tokenizer.encode(unseen_text));
+
+    // Legacy tokenizer checkpoints use only a token count followed by
+    // length-prefixed token strings. They must remain readable after BPE.
+    std::stringstream legacy_stream(
+        std::ios::in |
+        std::ios::out |
+        std::ios::binary);
+
+    const auto write_u64 =
+        [&](std::uint64_t value) {
+            legacy_stream.write(
+                reinterpret_cast<const char*>(&value),
+                sizeof(value));
+        };
+
+    const std::vector<std::string> legacy_tokens = {
+        "<unk>",
+        "hello",
+        " world",
+        "!"
+    };
+
+    write_u64(legacy_tokens.size());
+
+    for (const std::string& token :
+         legacy_tokens) {
+
+        write_u64(token.size());
+
+        legacy_stream.write(
+            token.data(),
+            static_cast<std::streamsize>(
+                token.size()));
+    }
+
+    Tokenizer legacy_tokenizer;
+    legacy_stream.seekg(0);
+    assert(legacy_tokenizer.load(legacy_stream));
+    assert(
+        legacy_tokenizer.decode(
+            legacy_tokenizer.encode(
+                "hello world!")) ==
+        "hello world!");
 
     // Adam sanity and checkpointable state.
     AdamOptimizer optimizer(2, 0.01f);
