@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(ULTRON_CORE_SOURCES
     src/config.cpp
     src/conversation.cpp
+    src/dictionary.cpp
     src/dataset.cpp
     src/metrics.cpp
     src/tokenizer.cpp
