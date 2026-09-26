@@ -2,7 +2,7 @@ param(
     [string]$Data = "data/train.txt",
     [int]$Epochs = 5,
     [double]$LearningRate = 0.003,
-    [string]$Checkpoint = "models/ultron.bin",
+    [string]$Checkpoint = "models/ultron_bpe.bin",
     [switch]$ExternalCorpus,
     [switch]$Fresh
 )
@@ -46,4 +46,18 @@ if ($LASTEXITCODE -ne 0) {
     throw "ULTRON training failed with exit code $LASTEXITCODE."
 }
 
-Write-Host "Training run finished successfully."
+$evaluationArgs = @(
+    "--load", $Checkpoint,
+    "--eval", $Data,
+    "--no-online-learning"
+)
+
+Write-Host ""
+Write-Host "Evaluating saved checkpoint..."
+& $exe @evaluationArgs
+
+if ($LASTEXITCODE -ne 0) {
+    throw "ULTRON checkpoint evaluation failed with exit code $LASTEXITCODE."
+}
+
+Write-Host "Training and checkpoint evaluation finished successfully."
