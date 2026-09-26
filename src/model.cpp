@@ -661,8 +661,10 @@ float ULTRONModel::train(
         std::vector<std::size_t> window_starts;
         window_starts.reserve(total_windows);
 
+        // Exclude a one-token tail because it cannot form a next-token
+        // training example. This also makes shuffling safe.
         for (std::size_t window_start = 0;
-             window_start < tokens.size();
+             window_start + 1 < tokens.size();
              window_start += window_step) {
             window_starts.push_back(window_start);
         }
@@ -707,7 +709,7 @@ float ULTRONModel::train(
                 window_end - window_start;
 
             if (window_size < 2) {
-                break;
+                continue;
             }
 
             std::vector<int> window_tokens(
