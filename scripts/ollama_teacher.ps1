@@ -44,7 +44,7 @@ if (!(Test-Path $teacherCorpusPath)) {
     [IO.File]::WriteAllText($teacherCorpusPath, "")
 }
 
-$ollamaExe = "$env:LOCALAPPDATAProgramsOllamaollama.exe"
+$ollamaExe = Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama.exe"
 if (!(Test-Path $ollamaExe)) {
     $command = Get-Command ollama.exe -ErrorAction SilentlyContinue
     if ($command) {
