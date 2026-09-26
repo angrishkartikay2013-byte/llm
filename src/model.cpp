@@ -355,233 +355,269 @@ float ULTRONModel::train(
 
     float last_epoch_loss = 0.0f;
 
+    // Walk across the complete corpus instead of silently training only on
+    // its final context window. Adjacent windows overlap by one token so
+    // next-token examples at window boundaries are still represented.
+    const std::size_t window_step =
+        kMaxSequenceLength > 1
+            ? kMaxSequenceLength - 1
+            : 1;
+
     for (std::size_t epoch = 0;
          epoch < epochs;
          ++epoch) {
 
-        std::size_t context_start = 0;
-
-        const auto states =
-            impl_->make_context_states(
-                tokens,
-                context_start);
-
-        const auto hidden_states =
-            impl_->transformer.forward(states);
-
-        if (hidden_states.empty()) {
-            continue;
-        }
-
-        std::vector<std::vector<float>> grad_hidden(
-            hidden_states.size(),
-            std::vector<float>(
-                kEmbeddingSize,
-                0.0f));
-
-        std::vector<float> output_gradients(
-            output_parameters.size(),
-            0.0f);
-
         double epoch_loss = 0.0;
-        std::size_t samples = 0;
+        std::size_t epoch_samples = 0;
 
-        for (std::size_t position = 0;
-             position + 1 < hidden_states.size();
-             ++position) {
+        for (std::size_t window_start = 0;
+             window_start < tokens.size();
+             window_start += window_step) {
 
-            const auto& hidden =
-                hidden_states[position];
+            const std::size_t window_end =
+                std::min(
+                    tokens.size(),
+                    window_start + kMaxSequenceLength);
 
-            std::vector<float> current_logits(
-                impl_->output_weights.size(),
+            const std::size_t window_size =
+                window_end - window_start;
+
+            if (window_size < 2) {
+                break;
+            }
+
+            std::vector<int> window_tokens(
+                tokens.begin() +
+                    static_cast<std::ptrdiff_t>(
+                        window_start),
+                tokens.begin() +
+                    static_cast<std::ptrdiff_t>(
+                        window_end));
+
+            std::size_t context_start = 0;
+            const auto states =
+                impl_->make_context_states(
+                    window_tokens,
+                    context_start);
+
+            const auto hidden_states =
+                impl_->transformer.forward(states);
+
+            if (hidden_states.size() < 2) {
+                continue;
+            }
+
+            std::vector<std::vector<float>> grad_hidden(
+                hidden_states.size(),
+                std::vector<float>(
+                    kEmbeddingSize,
+                    0.0f));
+
+            std::vector<float> output_gradients(
+                output_parameters.size(),
                 0.0f);
+
+            std::size_t window_samples = 0;
+
+            for (std::size_t position = 0;
+                 position + 1 < hidden_states.size();
+                 ++position) {
+
+                const auto& hidden =
+                    hidden_states[position];
+
+                std::vector<float> current_logits(
+                    impl_->output_weights.size(),
+                    0.0f);
+
+                for (std::size_t token = 0;
+                     token < impl_->output_weights.size();
+                     ++token) {
+
+                    for (std::size_t dimension = 0;
+                         dimension < kEmbeddingSize;
+                         ++dimension) {
+
+                        current_logits[token] +=
+                            hidden[dimension] *
+                            output_parameters[
+                                token * kEmbeddingSize +
+                                dimension];
+                    }
+                }
+
+                const auto probabilities =
+                    ultron_softmax(
+                        current_logits);
+
+                const std::size_t target =
+                    static_cast<std::size_t>(
+                        std::max(
+                            window_tokens[position + 1],
+                            0));
+
+                epoch_loss +=
+                    ultron_cross_entropy_loss(
+                        probabilities,
+                        target);
+
+                ++epoch_samples;
+                ++window_samples;
+
+                for (std::size_t token = 0;
+                     token < probabilities.size();
+                     ++token) {
+
+                    const float error =
+                        probabilities[token] -
+                        (token == target ? 1.0f : 0.0f);
+
+                    for (std::size_t dimension = 0;
+                         dimension < kEmbeddingSize;
+                         ++dimension) {
+
+                        const std::size_t parameter =
+                            token * kEmbeddingSize +
+                            dimension;
+
+                        output_gradients[parameter] +=
+                            error *
+                            hidden[dimension];
+
+                        grad_hidden[position][dimension] +=
+                            error *
+                            output_parameters[
+                                parameter];
+                    }
+                }
+            }
+
+            if (window_samples == 0) {
+                continue;
+            }
+
+            const float inverse_samples =
+                1.0f /
+                static_cast<float>(
+                    window_samples);
+
+            scale_in_place(
+                output_gradients,
+                inverse_samples);
+
+            for (auto& row : grad_hidden) {
+                scale_in_place(
+                    row,
+                    inverse_samples);
+            }
+
+            TransformerBlock::Gradients transformer_gradients;
+            std::vector<std::vector<float>> grad_states;
+
+            impl_->transformer.backward(
+                states,
+                grad_hidden,
+                grad_states,
+                transformer_gradients);
+
+            std::vector<float> transformer_gradients_flat;
+            impl_->transformer.flatten_gradients(
+                transformer_gradients,
+                transformer_gradients_flat);
+
+            std::vector<float> embedding_gradients(
+                embedding_parameters.size(),
+                0.0f);
+
+            for (std::size_t local_position = 0;
+                 local_position < grad_states.size();
+                 ++local_position) {
+
+                const int token_value =
+                    window_tokens[local_position];
+
+                if (token_value < 0) {
+                    continue;
+                }
+
+                const std::size_t token_id =
+                    static_cast<std::size_t>(
+                        token_value);
+
+                if (token_id >=
+                    impl_->embedding.vocabulary_size()) {
+                    continue;
+                }
+
+                for (std::size_t dimension = 0;
+                     dimension < kEmbeddingSize;
+                     ++dimension) {
+
+                    embedding_gradients[
+                        token_id * kEmbeddingSize +
+                        dimension] +=
+                        grad_states[
+                            local_position][dimension] *
+                        inverse_samples;
+                }
+            }
+
+            clip_gradients(
+                output_gradients,
+                5.0f);
+
+            clip_gradients(
+                transformer_gradients_flat,
+                5.0f);
+
+            clip_gradients(
+                embedding_gradients,
+                5.0f);
+
+            output_optimizer.step(
+                output_parameters,
+                output_gradients);
+
+            transformer_optimizer.step(
+                transformer_parameters,
+                transformer_gradients_flat);
+
+            embedding_optimizer.step(
+                embedding_parameters,
+                embedding_gradients);
+
+            impl_->transformer.set_parameters(
+                transformer_parameters);
+
+            impl_->embedding.set_parameters(
+                embedding_parameters);
 
             for (std::size_t token = 0;
                  token < impl_->output_weights.size();
                  ++token) {
 
-                for (std::size_t dimension = 0;
-                     dimension < kEmbeddingSize;
-                     ++dimension) {
-
-                    current_logits[token] +=
-                        hidden[dimension] *
-                        output_parameters[
-                            token * kEmbeddingSize +
-                            dimension];
-                }
+                std::copy(
+                    output_parameters.begin() +
+                        static_cast<std::ptrdiff_t>(
+                            token * kEmbeddingSize),
+                    output_parameters.begin() +
+                        static_cast<std::ptrdiff_t>(
+                            (token + 1) * kEmbeddingSize),
+                    impl_->output_weights[token].begin());
             }
 
-            const auto probabilities =
-                ultron_softmax(current_logits);
-
-            const std::size_t target =
-                static_cast<std::size_t>(
-                    std::max(
-                        tokens[
-                            context_start +
-                            position + 1],
-                        0));
-
-            epoch_loss +=
-                ultron_cross_entropy_loss(
-                    probabilities,
-                    target);
-
-            ++samples;
-
-            for (std::size_t token = 0;
-                 token < probabilities.size();
-                 ++token) {
-
-                const float error =
-                    probabilities[token] -
-                    (token == target ? 1.0f : 0.0f);
-
-                for (std::size_t dimension = 0;
-                     dimension < kEmbeddingSize;
-                     ++dimension) {
-
-                    const std::size_t parameter =
-                        token * kEmbeddingSize +
-                        dimension;
-
-                    output_gradients[parameter] +=
-                        error *
-                        hidden[dimension];
-
-                    grad_hidden[position][dimension] +=
-                        error *
-                        output_parameters[parameter];
-                }
-            }
-        }
-
-        if (samples == 0) {
-            continue;
-        }
-
-        const float inverse_samples =
-            1.0f /
-            static_cast<float>(samples);
-
-        scale_in_place(
-            output_gradients,
-            inverse_samples);
-
-        for (auto& row : grad_hidden) {
-            scale_in_place(
-                row,
-                inverse_samples);
-        }
-
-        TransformerBlock::Gradients transformer_gradients;
-
-        std::vector<std::vector<float>> grad_states;
-
-        impl_->transformer.backward(
-            states,
-            grad_hidden,
-            grad_states,
-            transformer_gradients);
-
-        std::vector<float> transformer_gradients_flat;
-        impl_->transformer.flatten_gradients(
-            transformer_gradients,
-            transformer_gradients_flat);
-
-        std::vector<float> embedding_gradients(
-            embedding_parameters.size(),
-            0.0f);
-
-        for (std::size_t local_position = 0;
-             local_position < grad_states.size();
-             ++local_position) {
-
-            const std::size_t token_position =
-                context_start +
-                local_position;
-
-            if (token_position >= tokens.size()) {
+            if (window_end == tokens.size()) {
                 break;
             }
-
-            const int token_value =
-                tokens[token_position];
-
-            if (token_value < 0) {
-                continue;
-            }
-
-            const std::size_t token_id =
-                static_cast<std::size_t>(
-                    token_value);
-
-            if (token_id >= impl_->embedding.vocabulary_size()) {
-                continue;
-            }
-
-            for (std::size_t dimension = 0;
-                 dimension < kEmbeddingSize;
-                 ++dimension) {
-
-                embedding_gradients[
-                    token_id * kEmbeddingSize +
-                    dimension] +=
-                    grad_states[
-                        local_position][dimension];
-            }
-        }
-
-        clip_gradients(
-            output_gradients,
-            5.0f);
-
-        clip_gradients(
-            transformer_gradients_flat,
-            5.0f);
-
-        clip_gradients(
-            embedding_gradients,
-            5.0f);
-
-        output_optimizer.step(
-            output_parameters,
-            output_gradients);
-
-        transformer_optimizer.step(
-            transformer_parameters,
-            transformer_gradients_flat);
-
-        embedding_optimizer.step(
-            embedding_parameters,
-            embedding_gradients);
-
-        impl_->transformer.set_parameters(
-            transformer_parameters);
-
-        impl_->embedding.set_parameters(
-            embedding_parameters);
-
-        for (std::size_t token = 0;
-             token < impl_->output_weights.size();
-             ++token) {
-
-            std::copy(
-                output_parameters.begin() +
-                    static_cast<std::ptrdiff_t>(
-                        token * kEmbeddingSize),
-                output_parameters.begin() +
-                    static_cast<std::ptrdiff_t>(
-                        (token + 1) * kEmbeddingSize),
-                impl_->output_weights[token].begin());
         }
 
         last_epoch_loss =
-            static_cast<float>(
-                epoch_loss /
-                static_cast<double>(samples));
+            epoch_samples == 0
+                ? 0.0f
+                : static_cast<float>(
+                    epoch_loss /
+                    static_cast<double>(
+                        epoch_samples));
 
         if ((epoch + 1) == epochs ||
             (epoch + 1) % 5 == 0) {
@@ -599,7 +635,6 @@ float ULTRONModel::train(
 
     return last_epoch_loss;
 }
-
 ModelEvaluation ULTRONModel::evaluate(
     const std::string& text) const {
 
