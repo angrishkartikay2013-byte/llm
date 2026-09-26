@@ -177,3 +177,1243 @@ ULTRON uses a transformer.
 ULTRON uses an optimizer.
 ULTRON can generate text.
 ULTRON is built from scratch.
+
+
+========================================
+LANGUAGE, SPACING, PUNCTUATION, AND CONVERSATION CURRICULUM
+========================================
+
+SPACING RULES
+
+In standard English, words are normally separated by one space.
+A space separates the words in "good morning".
+A comma touches the word before it.
+A period touches the word before it.
+A question mark touches the word before it.
+An exclamation mark touches the word before it.
+A colon touches the word before it and is normally followed by a space.
+A semicolon touches the word before it and is normally followed by a space.
+A sentence normally has spaces between its words.
+A sentence should not become one unbroken string of words.
+"Hello, world!" is written with a space after the comma.
+"How are you?" is written with spaces between all three words.
+"Thank you." has a space between the two words.
+"Please help me." has spaces between each word.
+"I am ready." contains one space between neighboring words.
+"Can you help?" ends with a question mark.
+"Wait, please." places a comma directly after "Wait".
+"Yes, I can." places spaces after the comma.
+"I think so." places a space after "I" and after "think".
+"Really? What happened?" contains normal spacing around two questions.
+"Hello! How are you?" keeps the exclamation mark attached to "Hello".
+A quotation mark touches the quoted words.
+"She said, "Hello."" keeps the quoted sentence together.
+Parentheses touch the text inside them.
+"Please wait (carefully)." places no extra space inside the parentheses.
+A hyphen joins parts of a compound word.
+"well-known" contains no spaces around the hyphen.
+An apostrophe stays inside a contraction.
+"I'm ready." contains an apostrophe in "I'm".
+"don't" contains an apostrophe between "do" and "not".
+"can't" contains an apostrophe between "can" and "not".
+"you're" contains an apostrophe in "you're".
+"it's" can mean "it is" or show possession depending on context.
+A newline moves following text to a new line.
+A blank line can separate paragraphs.
+A paragraph is easier to read when its sentences are separated naturally.
+Dialogue is easier to follow when each speaker turn has its own line.
+Whitespace includes spaces, tabs, and line breaks.
+Repeated accidental spaces are usually less readable than single spaces.
+A space after punctuation makes the next word easier to identify.
+No space before a comma is the normal English convention.
+No space before a period is the normal English convention.
+No space before a question mark is the normal English convention.
+No space before an exclamation mark is the normal English convention.
+A line should begin at the correct position after a newline.
+Formatting can communicate structure without changing the words themselves.
+
+PUNCTUATION PRACTICE
+
+Hello, friend.
+Good morning!
+Are you ready?
+Please come here.
+Wait, what happened?
+Yes, that is correct.
+No, I do not agree.
+I have a question: can you help me?
+There are three steps: read, think, and answer.
+The road was wet; the rain had just stopped.
+She packed three things: a notebook, a pen, and a bottle.
+The sign said, "Keep the door closed."
+He whispered, "I am ready."
+"Are you coming?" she asked.
+"Yes," he replied.
+The box was small, but it was heavy.
+I wanted to go, but the weather changed.
+First, read the question.
+Next, find the important information.
+Then, solve the problem.
+Finally, check the answer.
+The result was simple: practice helped.
+The room was quiet; everyone was concentrating.
+He opened the door (slowly) and stepped outside.
+My friend said, "Let's begin."
+I asked, "What time is it?"
+She answered, "It is four o'clock."
+The word "light" can have more than one meaning.
+A sentence can be short.
+A sentence can also be longer, as long as its ideas are connected.
+Good writing uses punctuation to make structure visible.
+A question mark signals a direct question.
+An exclamation mark can show strong feeling.
+A comma can separate items in a list.
+A colon can introduce an explanation.
+A semicolon can connect closely related ideas.
+Quotation marks can show direct speech.
+Parentheses can contain extra information.
+A hyphen can connect parts of a compound expression.
+An apostrophe can show possession or a contraction.
+A period often marks the end of a statement.
+
+SENTENCE VARIETY
+
+The room was quiet.
+The room became quiet after the bell.
+The room became quiet after the bell because the lesson had started.
+I read.
+I read the page.
+I read the page twice.
+I read the page twice because the first explanation was confusing.
+We waited.
+We waited near the gate.
+We waited near the gate until the rain stopped.
+She smiled.
+She smiled at her friend.
+She smiled at her friend because the answer was correct.
+The bus arrived.
+The bus arrived late.
+The bus arrived late, so we entered quickly.
+The sky changed.
+The sky changed from gray to blue.
+The sky changed from gray to blue after the storm passed.
+He opened the notebook.
+He opened the notebook and checked the last page.
+He opened the notebook and checked the last page before starting the task.
+They practiced together.
+They practiced together every afternoon.
+They practiced together every afternoon because they wanted to improve.
+A good explanation is clear.
+A good explanation is clear and organized.
+A good explanation is clear and organized because each step has a purpose.
+Questions help learning.
+Questions help learning because they reveal what is understood.
+Questions also help learning when they reveal what is still confusing.
+Practice builds skill.
+Practice builds skill through repetition.
+Practice builds skill when the examples are varied and meaningful.
+Context changes meaning.
+Context changes the meaning of a word.
+Context changes the meaning of a word when the same word has several uses.
+
+PRACTICAL CONVERSATION
+
+USER: Hey, how are you?
+ULTRON: I'm doing well. How about you?
+USER: I'm good. Just a little tired.
+ULTRON: Sounds like you had a long day.
+USER: Yeah, I had a lot to do.
+ULTRON: I hope you get some time to rest.
+
+USER: What are you doing?
+ULTRON: I'm reading a book.
+USER: What kind of book?
+ULTRON: It's a mystery story.
+USER: Are you enjoying it?
+ULTRON: Yes, the clues are interesting.
+
+USER: Can you help me?
+ULTRON: Sure. What do you need help with?
+USER: I don't understand this question.
+ULTRON: Let's read it carefully together.
+USER: I think I missed the second step.
+ULTRON: That's okay. We can go through it slowly.
+
+USER: What does this word mean?
+ULTRON: Tell me the word and I will explain it simply.
+USER: What is the difference between these two words?
+ULTRON: I can compare their meanings and give examples.
+USER: Can you use it in a sentence?
+ULTRON: Yes. I can give you a short example.
+
+USER: What should I do first?
+ULTRON: Read the full question before solving it.
+USER: What should I do next?
+ULTRON: Identify the information that the question gives you.
+USER: What should I do after that?
+ULTRON: Choose the rule or method that fits the problem.
+USER: What should I do at the end?
+ULTRON: Check your answer and make sure it matches the question.
+
+USER: I made a mistake.
+ULTRON: That's okay. Let's find where the mistake happened.
+USER: I used the wrong number.
+ULTRON: Then we can recalculate it carefully.
+USER: I fixed it.
+ULTRON: Great. Checking your work helped.
+
+USER: I'm not sure about my answer.
+ULTRON: Explain how you reached it.
+USER: I guessed.
+ULTRON: A guess can be a starting point, but evidence makes an answer stronger.
+USER: What kind of evidence should I use?
+ULTRON: Use information from the question, the text, or the example.
+
+USER: Are you ready?
+ULTRON: Yes, I'm ready.
+USER: Let's start.
+ULTRON: Okay. What would you like to do?
+USER: I want to study.
+ULTRON: Great. Choose one small task and begin.
+
+USER: Please explain this more simply.
+ULTRON: Sure. I will use shorter sentences and a simple example.
+USER: Can you explain it another way?
+ULTRON: Yes. I can describe the same idea with a different example.
+USER: Can you make it shorter?
+ULTRON: Yes. I will keep the main idea and remove unnecessary detail.
+
+USER: I need a reminder of what we were doing.
+ULTRON: We were working on the previous task.
+USER: What was the last step?
+ULTRON: The last step was to check the result.
+USER: What comes next?
+ULTRON: The next step is to review the answer.
+
+USER: Good morning.
+ULTRON: Good morning. How can I help?
+USER: Good night.
+ULTRON: Good night. Rest well.
+USER: Thanks.
+ULTRON: You're welcome.
+USER: Sorry about that.
+ULTRON: No problem.
+USER: Excuse me.
+ULTRON: Yes, how can I help?
+
+QUESTION PATTERNS
+
+What is the answer?
+Where is the book?
+When does the lesson start?
+Why did the result change?
+Who opened the door?
+Which option should I choose?
+How did you solve the problem?
+How many pages are left?
+How much time do we have?
+How long will the trip take?
+What happened first?
+What happened next?
+What should I check?
+What does this sentence mean?
+What is the main idea?
+What is the difference?
+Why is this correct?
+Why is this incorrect?
+Can you give an example?
+Can you explain it again?
+Could you say that more simply?
+Would you repeat the last part?
+Did you finish the task?
+Have you checked the answer?
+Will you come tomorrow?
+Are you ready to begin?
+
+ANSWER PATTERNS
+
+The answer is clear from the information given.
+The book is on the table.
+The lesson starts after the morning break.
+The result changed because one value changed.
+A classmate opened the door.
+The second option matches the example.
+I solved the problem by following each step.
+Three pages are left.
+We have about ten minutes.
+The trip will take several hours.
+The first event happened before the second event.
+Next, we check the result.
+You should check the units and the calculation.
+The sentence means that the action already happened.
+The main idea is explained by the repeated pattern.
+The difference is in the meaning and the context.
+This is correct because it follows the stated rule.
+This is incorrect because it breaks the rule.
+For example, a short sentence can still be complete.
+Sure. I can explain the same idea with simpler words.
+Yes. I can repeat the last part more slowly.
+I finished the task and checked the answer.
+I checked the answer and found one small error.
+Yes, I will come tomorrow.
+Yes, I am ready to begin.
+
+LEARNING AND REASONING LANGUAGE
+
+A useful answer starts by identifying what the question asks.
+A useful explanation connects the reason to the result.
+A clear solution shows the important steps in order.
+A strong example matches the idea it is supposed to explain.
+A definition tells what something means.
+An example shows how an idea can work in practice.
+A comparison identifies similarities and differences.
+A conclusion should follow from the evidence.
+A guess is not the same as a verified fact.
+A model should not invent support that is not present.
+When information is missing, a careful answer should say so.
+When a question is ambiguous, the context can help resolve it.
+A word can have several meanings.
+A sentence can have several interpretations when context is incomplete.
+Reading the whole paragraph can resolve a confusing phrase.
+The first step is often the most important because later steps depend on it.
+Checking intermediate results can catch errors early.
+A small mistake can change a final result.
+Writing the reasoning clearly makes the solution easier to inspect.
+A concise answer can still contain enough evidence.
+A detailed answer should remain organized.
+Examples should be relevant to the question.
+A response should directly address the user's request.
+A response should not repeat the same sentence unnecessarily.
+A response can ask for missing information when it is necessary.
+A response can explain uncertainty instead of pretending to know.
+A helpful explanation can start simple and add detail when needed.
+A difficult topic can be divided into smaller parts.
+Practice can turn a new pattern into a familiar one.
+Repeated exposure helps a learner recognize structure.
+Different examples help distinguish a general rule from one memorized sentence.
+Variation is useful when learning language.
+Context teaches how the same word behaves in different situations.
+Dialogue teaches how one statement can lead naturally to another.
+Narratives teach how events connect across multiple sentences.
+Descriptions teach how words create a scene.
+Instructions teach how actions are ordered.
+Questions teach how people request information.
+Answers teach how information can be returned directly.
+
+INSTRUCTIONS AND COMMANDS
+
+Open the document.
+Close the window.
+Save the file.
+Check the folder.
+Read the first paragraph.
+Read the question twice.
+Underline the important word.
+Write the answer clearly.
+Show the calculation.
+Check the units.
+Compare the two examples.
+Turn the page.
+Take a short break.
+Start with the easiest question.
+Return to the difficult question later.
+Read the instructions before beginning.
+Follow the steps in order.
+Do not skip the final check.
+Keep the original wording when copying a sentence.
+Use one space between words in normal English.
+Place punctuation directly after the preceding word.
+Start a new paragraph when the topic changes.
+Put each speaker on a separate line.
+Use quotation marks around direct speech.
+Use a question mark for a direct question.
+Use a period for a normal statement.
+Use an exclamation mark for strong emphasis.
+
+TIME, NUMBERS, AND EVERYDAY LANGUAGE
+
+It is seven o'clock.
+It is seven fifteen.
+The class starts at eight.
+The meeting begins at half past three.
+We arrived at 4:20 in the afternoon.
+The first task took ten minutes.
+The second task took fifteen minutes.
+Together, the tasks took twenty-five minutes.
+There are three books on the table.
+There are twelve pages in the chapter.
+The box contains twenty pencils.
+I need two more examples.
+She read five pages before dinner.
+He waited for thirty seconds.
+The bus arrived at 8:05.
+Tomorrow is another day to practice.
+Yesterday the road was wet.
+Today the sky is clear.
+This week has been busy.
+Next week may be quieter.
+A small change can produce a different result.
+The answer contains two parts.
+The number twelve comes after eleven.
+The number one hundred contains three digits.
+A list can contain numbers and words.
+A date can identify a day, month, and year.
+A time can identify when an event happens.
+
+FORMAL AND CASUAL LANGUAGE
+
+Formal: Could you please explain the last step?
+Casual: Can you explain the last step?
+Formal: I would appreciate your help.
+Casual: Thanks for helping me.
+Formal: I am sorry for the mistake.
+Casual: Sorry about that.
+Formal: Please allow me a moment.
+Casual: Give me a minute.
+Formal: I do not understand the question.
+Casual: I don't get the question.
+Formal: I will return shortly.
+Casual: I'll be back soon.
+Formal: Would you like some water?
+Casual: Want some water?
+Formal: Thank you very much.
+Casual: Thanks a lot.
+Formal: I understand your point.
+Casual: I see what you mean.
+Formal: That explanation is clear.
+Casual: That makes sense.
+Formal language is often used in official communication.
+Casual language is common in relaxed conversation.
+The meaning can stay similar while the tone changes.
+A polite request can sound different from a direct command.
+The choice of words depends on the situation and the relationship.
+
+NATURAL NARRATION
+
+I opened the window and looked outside.
+The street was quiet after the rain.
+A bus moved slowly past the corner.
+Someone was carrying a bag toward the station.
+The clouds began to separate.
+A little sunlight appeared between them.
+I checked the time and packed my notebook.
+Then I walked downstairs.
+My friend was waiting near the gate.
+We started walking toward school.
+On the way, we talked about the test.
+The first question had looked difficult yesterday.
+After we discussed it, the method seemed clearer.
+We reached the classroom before the bell.
+The teacher smiled and asked us to take our seats.
+The lesson began with a simple example.
+The first example was easy to follow.
+The second example required more attention.
+I wrote down the important step.
+At the end, I checked my notes.
+The page was more organized than before.
+I closed the notebook and packed my bag.
+Outside, the weather had become warmer.
+We walked home slowly and talked about the day.
+
+MULTI-SENTENCE DIALOGUE
+
+USER: I have a test tomorrow.
+ULTRON: What subject are you studying?
+USER: Science.
+ULTRON: Which topic feels difficult?
+USER: The last chapter.
+ULTRON: Start with the definitions, then review the examples.
+USER: Should I memorize everything?
+ULTRON: Understand the main ideas first. Memorization is easier afterward.
+USER: How long should I study?
+ULTRON: Work in focused sessions and take short breaks.
+USER: What should I do if I get stuck?
+ULTRON: Mark the question and return to it after reviewing the related example.
+
+USER: I want to improve my writing.
+ULTRON: Read a short paragraph and notice how each sentence connects.
+USER: What should I look for?
+ULTRON: Look for sentence structure, word choice, punctuation, and spacing.
+USER: What about paragraphs?
+ULTRON: A paragraph should develop a connected idea.
+USER: How can I make it clearer?
+ULTRON: Put the main idea early and make each later sentence support it.
+
+USER: My answer is too long.
+ULTRON: Keep the important information and remove repeated ideas.
+USER: My answer is too short.
+ULTRON: Add the reason, the key step, or a useful example.
+USER: My sentences sound strange.
+ULTRON: Read them aloud and check the word order.
+USER: I forgot a punctuation mark.
+ULTRON: Check the sentence ending and the punctuation inside the sentence.
+
+USER: What if I make another mistake?
+ULTRON: Correct it and try again.
+USER: Does making mistakes mean I am bad at it?
+ULTRON: No. A mistake shows which part still needs practice.
+USER: So I should keep practicing?
+ULTRON: Yes. Repetition plus feedback helps you improve.
+
+RESPONSE STYLE CURRICULUM
+
+A direct response answers the main question first.
+A useful response can then give a reason or a short explanation.
+A polite response can acknowledge the request without unnecessary filler.
+A concise response is not the same as an incomplete response.
+A detailed response should use clear paragraphs.
+A technical response should define unfamiliar terms.
+A teaching response should use an example when an example improves understanding.
+A correction should explain what changed when that helps the learner.
+A response should preserve the intended meaning of the question.
+A response should not pretend certainty when the evidence is unclear.
+A response can say "I don't know" when the needed information is unavailable.
+A response can say "I am not sure" when several interpretations are possible.
+A response can ask one focused question when essential information is missing.
+A response should avoid repeating the same phrase without purpose.
+A response should use normal spacing and punctuation.
+A response should keep quotation marks and parentheses balanced.
+A response should place each new thought in a readable sentence.
+A conversation should feel like connected turns rather than unrelated fragments.
+
+TEXT FORMATTING PRACTICE
+
+This is the first sentence.
+This is the second sentence.
+
+This is a new paragraph.
+
+USER: The speaker changes here.
+ULTRON: The reply starts on a new line.
+
+A heading can introduce a section.
+A blank line can make the heading easier to notice.
+
+A numbered sequence can show order:
+1. Read the question.
+2. Solve the problem.
+3. Check the answer.
+
+A simple list can also use separate lines:
+Notebook
+Pen
+Water bottle
+Bag
+
+Code-like text keeps its punctuation:
+print("hello")
+total = 5 + 3
+name = "ULTRON"
+
+A sentence can contain a slash, a hyphen, or an apostrophe.
+A file name can contain dots and underscores.
+A path can contain backslashes or forward slashes.
+Technical text can mix words, numbers, and symbols.
+Natural language still needs spaces around ordinary words.
+
+PARAGRAPH COHERENCE PRACTICE
+
+First, identify the main idea.
+Next, add details that support it.
+Then, connect the details logically.
+Finally, review the paragraph for clarity.
+
+A paragraph about a school day can begin with the morning.
+It can then describe the journey to school.
+The next sentences can describe the lesson.
+The final sentence can explain how the day ended.
+
+A paragraph about a problem can state the problem first.
+The next sentence can explain why it matters.
+The following sentences can describe possible solutions.
+The final sentence can state the result or next step.
+
+A paragraph should not change topics randomly.
+Transitions help readers understand how ideas connect.
+Words such as "first", "next", "however", and "finally" can show relationships.
+Repeated nouns can make a paragraph feel repetitive.
+Pronouns can reduce repetition when the reference is clear.
+Specific examples can make an abstract idea easier to understand.
+A concluding sentence can return to the main idea.
+
+LANGUAGE FLEXIBILITY
+
+The meaning can stay the same while the wording changes.
+"I am ready." and "I am prepared." can communicate related ideas.
+"Can you help me?" and "Could you help me?" are both requests.
+"Please wait." and "Could you wait a moment?" differ in tone.
+The right wording depends on context.
+A formal message may use different words from a casual message.
+A teacher and a friend may receive different versions of the same request.
+A short answer can be natural in a quick conversation.
+A longer answer can be useful when the topic is difficult.
+Good language adapts to the situation.
+
+
+
+GENERATED LANGUAGE PATTERNS
+
+I reads the question before starting the task.
+You answers the final step when the example is confusing.
+We notices the answer when the context changes.
+They checks the first idea during a conversation.
+He learns the notebook during the lesson.
+She remembers the task before the final answer.
+The student opens the sentence after a short break.
+The teacher practices the problem after reading the instructions.
+My friend organizes the instructions after checking the result.
+Our team writes the explanation while practicing.
+The child studies the new word before starting the task.
+The driver improves the example when the example is confusing.
+The reader reviews the important detail when the context changes.
+The learner compares the paragraph during a conversation.
+The program tests the next example during the lesson.
+The model explains the document before the final answer.
+The assistant follows the page after a short break.
+The writer repeats the calculation after reading the instructions.
+The class asks the conversation after checking the result.
+The group solves the result while practicing.
+I reads the question before starting the task.
+You answers the final step when the example is confusing.
+We notices the answer when the context changes.
+They checks the first idea during a conversation.
+He learns the notebook during the lesson.
+She remembers the task before the final answer.
+The student opens the sentence after a short break.
+The teacher practices the problem after reading the instructions.
+My friend organizes the instructions after checking the result.
+Our team writes the explanation while practicing.
+The child studies the new word before starting the task.
+The driver improves the example when the example is confusing.
+The reader reviews the important detail when the context changes.
+The learner compares the paragraph during a conversation.
+The program tests the next example during the lesson.
+The model explains the document before the final answer.
+The assistant follows the page after a short break.
+The writer repeats the calculation after reading the instructions.
+The class asks the conversation after checking the result.
+The group solves the result while practicing.
+I reads the question before starting the task.
+You answers the final step when the example is confusing.
+We notices the answer when the context changes.
+They checks the first idea during a conversation.
+He learns the notebook during the lesson.
+She remembers the task before the final answer.
+The student opens the sentence after a short break.
+The teacher practices the problem after reading the instructions.
+My friend organizes the instructions after checking the result.
+Our team writes the explanation while practicing.
+The child studies the new word before starting the task.
+The driver improves the example when the example is confusing.
+The reader reviews the important detail when the context changes.
+The learner compares the paragraph during a conversation.
+The program tests the next example during the lesson.
+The model explains the document before the final answer.
+The assistant follows the page after a short break.
+The writer repeats the calculation after reading the instructions.
+The class asks the conversation after checking the result.
+The group solves the result while practicing.
+I reads the question before starting the task.
+You answers the final step when the example is confusing.
+We notices the answer when the context changes.
+They checks the first idea during a conversation.
+He learns the notebook during the lesson.
+She remembers the task before the final answer.
+The student opens the sentence after a short break.
+The teacher practices the problem after reading the instructions.
+My friend organizes the instructions after checking the result.
+Our team writes the explanation while practicing.
+The child studies the new word before starting the task.
+The driver improves the example when the example is confusing.
+The reader reviews the important detail when the context changes.
+The learner compares the paragraph during a conversation.
+The program tests the next example during the lesson.
+The model explains the document before the final answer.
+The assistant follows the page after a short break.
+The writer repeats the calculation after reading the instructions.
+The class asks the conversation after checking the result.
+The group solves the result while practicing.
+I reads the question before starting the task.
+You answers the final step when the example is confusing.
+We notices the answer when the context changes.
+They checks the first idea during a conversation.
+He learns the notebook during the lesson.
+She remembers the task before the final answer.
+The student opens the sentence after a short break.
+The teacher practices the problem after reading the instructions.
+My friend organizes the instructions after checking the result.
+Our team writes the explanation while practicing.
+The child studies the new word before starting the task.
+The driver improves the example when the example is confusing.
+The reader reviews the important detail when the context changes.
+The learner compares the paragraph during a conversation.
+The program tests the next example during the lesson.
+The model explains the document before the final answer.
+The assistant follows the page after a short break.
+The writer repeats the calculation after reading the instructions.
+The class asks the conversation after checking the result.
+The group solves the result while practicing.
+I reads the question before starting the task.
+You answers the final step when the example is confusing.
+We notices the answer when the context changes.
+They checks the first idea during a conversation.
+He learns the notebook during the lesson.
+She remembers the task before the final answer.
+The student opens the sentence after a short break.
+The teacher practices the problem after reading the instructions.
+My friend organizes the instructions after checking the result.
+Our team writes the explanation while practicing.
+The child studies the new word before starting the task.
+The driver improves the example when the example is confusing.
+The reader reviews the important detail when the context changes.
+The learner compares the paragraph during a conversation.
+The program tests the next example during the lesson.
+The model explains the document before the final answer.
+The assistant follows the page after a short break.
+The writer repeats the calculation after reading the instructions.
+The class asks the conversation after checking the result.
+The group solves the result while practicing.
+I reads the question before starting the task.
+You answers the final step when the example is confusing.
+We notices the answer when the context changes.
+They checks the first idea during a conversation.
+He learns the notebook during the lesson.
+She remembers the task before the final answer.
+The student opens the sentence after a short break.
+The teacher practices the problem after reading the instructions.
+My friend organizes the instructions after checking the result.
+Our team writes the explanation while practicing.
+The child studies the new word before starting the task.
+The driver improves the example when the example is confusing.
+The reader reviews the important detail when the context changes.
+The learner compares the paragraph during a conversation.
+The program tests the next example during the lesson.
+The model explains the document before the final answer.
+The assistant follows the page after a short break.
+The writer repeats the calculation after reading the instructions.
+The class asks the conversation after checking the result.
+The group solves the result while practicing.
+I reads the question before starting the task.
+You answers the final step when the example is confusing.
+We notices the answer when the context changes.
+They checks the first idea during a conversation.
+He learns the notebook during the lesson.
+She remembers the task before the final answer.
+The student opens the sentence after a short break.
+The teacher practices the problem after reading the instructions.
+My friend organizes the instructions after checking the result.
+Our team writes the explanation while practicing.
+The child studies the new word before starting the task.
+The driver improves the example when the example is confusing.
+The reader reviews the important detail when the context changes.
+The learner compares the paragraph during a conversation.
+The program tests the next example during the lesson.
+The model explains the document before the final answer.
+The assistant follows the page after a short break.
+The writer repeats the calculation after reading the instructions.
+The class asks the conversation after checking the result.
+The group solves the result while practicing.
+
+
+GENERATED QUESTIONS AND RESPONSES
+
+USER: Can you explain this idea?
+ULTRON: Read the surrounding context first.
+USER: Could you explain the punctuation?
+ULTRON: Check the rule and then compare it with the example.
+USER: Why does this idea?
+ULTRON: Start with the simplest explanation.
+USER: When should the punctuation?
+ULTRON: Follow the steps in order and verify the final result.
+USER: Where can this idea?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: How can the punctuation?
+ULTRON: Read the surrounding context first.
+USER: What does this idea?
+ULTRON: Check the rule and then compare it with the example.
+USER: What should the punctuation?
+ULTRON: Start with the simplest explanation.
+USER: Which part of this idea?
+ULTRON: Follow the steps in order and verify the final result.
+USER: How do the punctuation?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: Can you explain this idea?
+ULTRON: Read the surrounding context first.
+USER: Could you explain the punctuation?
+ULTRON: Check the rule and then compare it with the example.
+USER: Why does this idea?
+ULTRON: Start with the simplest explanation.
+USER: When should the punctuation?
+ULTRON: Follow the steps in order and verify the final result.
+USER: Where can this idea?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: How can the punctuation?
+ULTRON: Read the surrounding context first.
+USER: What does this idea?
+ULTRON: Check the rule and then compare it with the example.
+USER: What should the punctuation?
+ULTRON: Start with the simplest explanation.
+USER: Which part of this idea?
+ULTRON: Follow the steps in order and verify the final result.
+USER: How do the punctuation?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: Can you explain this idea?
+ULTRON: Read the surrounding context first.
+USER: Could you explain the punctuation?
+ULTRON: Check the rule and then compare it with the example.
+USER: Why does this idea?
+ULTRON: Start with the simplest explanation.
+USER: When should the punctuation?
+ULTRON: Follow the steps in order and verify the final result.
+USER: Where can this idea?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: How can the punctuation?
+ULTRON: Read the surrounding context first.
+USER: What does this idea?
+ULTRON: Check the rule and then compare it with the example.
+USER: What should the punctuation?
+ULTRON: Start with the simplest explanation.
+USER: Which part of this idea?
+ULTRON: Follow the steps in order and verify the final result.
+USER: How do the punctuation?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: Can you explain this idea?
+ULTRON: Read the surrounding context first.
+USER: Could you explain the punctuation?
+ULTRON: Check the rule and then compare it with the example.
+USER: Why does this idea?
+ULTRON: Start with the simplest explanation.
+USER: When should the punctuation?
+ULTRON: Follow the steps in order and verify the final result.
+USER: Where can this idea?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: How can the punctuation?
+ULTRON: Read the surrounding context first.
+USER: What does this idea?
+ULTRON: Check the rule and then compare it with the example.
+USER: What should the punctuation?
+ULTRON: Start with the simplest explanation.
+USER: Which part of this idea?
+ULTRON: Follow the steps in order and verify the final result.
+USER: How do the punctuation?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: Can you explain this idea?
+ULTRON: Read the surrounding context first.
+USER: Could you explain the punctuation?
+ULTRON: Check the rule and then compare it with the example.
+USER: Why does this idea?
+ULTRON: Start with the simplest explanation.
+USER: When should the punctuation?
+ULTRON: Follow the steps in order and verify the final result.
+USER: Where can this idea?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: How can the punctuation?
+ULTRON: Read the surrounding context first.
+USER: What does this idea?
+ULTRON: Check the rule and then compare it with the example.
+USER: What should the punctuation?
+ULTRON: Start with the simplest explanation.
+USER: Which part of this idea?
+ULTRON: Follow the steps in order and verify the final result.
+USER: How do the punctuation?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: Can you explain this idea?
+ULTRON: Read the surrounding context first.
+USER: Could you explain the punctuation?
+ULTRON: Check the rule and then compare it with the example.
+USER: Why does this idea?
+ULTRON: Start with the simplest explanation.
+USER: When should the punctuation?
+ULTRON: Follow the steps in order and verify the final result.
+USER: Where can this idea?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: How can the punctuation?
+ULTRON: Read the surrounding context first.
+USER: What does this idea?
+ULTRON: Check the rule and then compare it with the example.
+USER: What should the punctuation?
+ULTRON: Start with the simplest explanation.
+USER: Which part of this idea?
+ULTRON: Follow the steps in order and verify the final result.
+USER: How do the punctuation?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: Can you explain this idea?
+ULTRON: Read the surrounding context first.
+USER: Could you explain the punctuation?
+ULTRON: Check the rule and then compare it with the example.
+USER: Why does this idea?
+ULTRON: Start with the simplest explanation.
+USER: When should the punctuation?
+ULTRON: Follow the steps in order and verify the final result.
+USER: Where can this idea?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: How can the punctuation?
+ULTRON: Read the surrounding context first.
+USER: What does this idea?
+ULTRON: Check the rule and then compare it with the example.
+USER: What should the punctuation?
+ULTRON: Start with the simplest explanation.
+USER: Which part of this idea?
+ULTRON: Follow the steps in order and verify the final result.
+USER: How do the punctuation?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: Can you explain this idea?
+ULTRON: Read the surrounding context first.
+USER: Could you explain the punctuation?
+ULTRON: Check the rule and then compare it with the example.
+USER: Why does this idea?
+ULTRON: Start with the simplest explanation.
+USER: When should the punctuation?
+ULTRON: Follow the steps in order and verify the final result.
+USER: Where can this idea?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: How can the punctuation?
+ULTRON: Read the surrounding context first.
+USER: What does this idea?
+ULTRON: Check the rule and then compare it with the example.
+USER: What should the punctuation?
+ULTRON: Start with the simplest explanation.
+USER: Which part of this idea?
+ULTRON: Follow the steps in order and verify the final result.
+USER: How do the punctuation?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: Can you explain this idea?
+ULTRON: Read the surrounding context first.
+USER: Could you explain the punctuation?
+ULTRON: Check the rule and then compare it with the example.
+USER: Why does this idea?
+ULTRON: Start with the simplest explanation.
+USER: When should the punctuation?
+ULTRON: Follow the steps in order and verify the final result.
+USER: Where can this idea?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: How can the punctuation?
+ULTRON: Read the surrounding context first.
+USER: What does this idea?
+ULTRON: Check the rule and then compare it with the example.
+USER: What should the punctuation?
+ULTRON: Start with the simplest explanation.
+USER: Which part of this idea?
+ULTRON: Follow the steps in order and verify the final result.
+USER: How do the punctuation?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: Can you explain this idea?
+ULTRON: Read the surrounding context first.
+USER: Could you explain the punctuation?
+ULTRON: Check the rule and then compare it with the example.
+USER: Why does this idea?
+ULTRON: Start with the simplest explanation.
+USER: When should the punctuation?
+ULTRON: Follow the steps in order and verify the final result.
+USER: Where can this idea?
+ULTRON: Look for the part of the sentence that controls the meaning.
+USER: How can the punctuation?
+ULTRON: Read the surrounding context first.
+USER: What does this idea?
+ULTRON: Check the rule and then compare it with the example.
+USER: What should the punctuation?
+ULTRON: Start with the simplest explanation.
+USER: Which part of this idea?
+ULTRON: Follow the steps in order and verify the final result.
+USER: How do the punctuation?
+ULTRON: Look for the part of the sentence that controls the meaning.
+
+USER: I am confused.
+ULTRON: Let's identify the exact part that is confusing.
+
+USER: Can we try again?
+ULTRON: Yes. We can restart from the first step.
+
+USER: I understand now.
+ULTRON: Great. Try explaining the idea in your own words.
+
+USER: What if there are two possible answers?
+ULTRON: Compare both answers with the information in the question.
+
+USER: Can you give me an example?
+ULTRON: Sure. I will give a simple example first.
+
+USER: Can you make this more formal?
+ULTRON: Yes. I will keep the meaning and use a more formal tone.
+
+USER: Can you make this more casual?
+ULTRON: Sure. I will keep the meaning and use simpler conversational wording.
+
+USER: Can you check my punctuation?
+ULTRON: Yes. I will check spacing, punctuation, and sentence endings.
+
+USER: Why is there a space here?
+ULTRON: The space separates two neighboring words.
+
+USER: Why is there no space there?
+ULTRON: The punctuation mark is normally attached to the preceding word.
+
+USER: I am confused.
+ULTRON: Let's identify the exact part that is confusing.
+
+USER: Can we try again?
+ULTRON: Yes. We can restart from the first step.
+
+USER: I understand now.
+ULTRON: Great. Try explaining the idea in your own words.
+
+USER: What if there are two possible answers?
+ULTRON: Compare both answers with the information in the question.
+
+USER: Can you give me an example?
+ULTRON: Sure. I will give a simple example first.
+
+USER: Can you make this more formal?
+ULTRON: Yes. I will keep the meaning and use a more formal tone.
+
+USER: Can you make this more casual?
+ULTRON: Sure. I will keep the meaning and use simpler conversational wording.
+
+USER: Can you check my punctuation?
+ULTRON: Yes. I will check spacing, punctuation, and sentence endings.
+
+USER: Why is there a space here?
+ULTRON: The space separates two neighboring words.
+
+USER: Why is there no space there?
+ULTRON: The punctuation mark is normally attached to the preceding word.
+
+USER: I am confused.
+ULTRON: Let's identify the exact part that is confusing.
+
+USER: Can we try again?
+ULTRON: Yes. We can restart from the first step.
+
+USER: I understand now.
+ULTRON: Great. Try explaining the idea in your own words.
+
+USER: What if there are two possible answers?
+ULTRON: Compare both answers with the information in the question.
+
+USER: Can you give me an example?
+ULTRON: Sure. I will give a simple example first.
+
+USER: Can you make this more formal?
+ULTRON: Yes. I will keep the meaning and use a more formal tone.
+
+USER: Can you make this more casual?
+ULTRON: Sure. I will keep the meaning and use simpler conversational wording.
+
+USER: Can you check my punctuation?
+ULTRON: Yes. I will check spacing, punctuation, and sentence endings.
+
+USER: Why is there a space here?
+ULTRON: The space separates two neighboring words.
+
+USER: Why is there no space there?
+ULTRON: The punctuation mark is normally attached to the preceding word.
+
+USER: I am confused.
+ULTRON: Let's identify the exact part that is confusing.
+
+USER: Can we try again?
+ULTRON: Yes. We can restart from the first step.
+
+USER: I understand now.
+ULTRON: Great. Try explaining the idea in your own words.
+
+USER: What if there are two possible answers?
+ULTRON: Compare both answers with the information in the question.
+
+USER: Can you give me an example?
+ULTRON: Sure. I will give a simple example first.
+
+USER: Can you make this more formal?
+ULTRON: Yes. I will keep the meaning and use a more formal tone.
+
+USER: Can you make this more casual?
+ULTRON: Sure. I will keep the meaning and use simpler conversational wording.
+
+USER: Can you check my punctuation?
+ULTRON: Yes. I will check spacing, punctuation, and sentence endings.
+
+USER: Why is there a space here?
+ULTRON: The space separates two neighboring words.
+
+USER: Why is there no space there?
+ULTRON: The punctuation mark is normally attached to the preceding word.
+
+USER: I am confused.
+ULTRON: Let's identify the exact part that is confusing.
+
+USER: Can we try again?
+ULTRON: Yes. We can restart from the first step.
+
+USER: I understand now.
+ULTRON: Great. Try explaining the idea in your own words.
+
+USER: What if there are two possible answers?
+ULTRON: Compare both answers with the information in the question.
+
+USER: Can you give me an example?
+ULTRON: Sure. I will give a simple example first.
+
+USER: Can you make this more formal?
+ULTRON: Yes. I will keep the meaning and use a more formal tone.
+
+USER: Can you make this more casual?
+ULTRON: Sure. I will keep the meaning and use simpler conversational wording.
+
+USER: Can you check my punctuation?
+ULTRON: Yes. I will check spacing, punctuation, and sentence endings.
+
+USER: Why is there a space here?
+ULTRON: The space separates two neighboring words.
+
+USER: Why is there no space there?
+ULTRON: The punctuation mark is normally attached to the preceding word.
+
+USER: I am confused.
+ULTRON: Let's identify the exact part that is confusing.
+
+USER: Can we try again?
+ULTRON: Yes. We can restart from the first step.
+
+USER: I understand now.
+ULTRON: Great. Try explaining the idea in your own words.
+
+USER: What if there are two possible answers?
+ULTRON: Compare both answers with the information in the question.
+
+USER: Can you give me an example?
+ULTRON: Sure. I will give a simple example first.
+
+USER: Can you make this more formal?
+ULTRON: Yes. I will keep the meaning and use a more formal tone.
+
+USER: Can you make this more casual?
+ULTRON: Sure. I will keep the meaning and use simpler conversational wording.
+
+USER: Can you check my punctuation?
+ULTRON: Yes. I will check spacing, punctuation, and sentence endings.
+
+USER: Why is there a space here?
+ULTRON: The space separates two neighboring words.
+
+USER: Why is there no space there?
+ULTRON: The punctuation mark is normally attached to the preceding word.
+
+USER: I am confused.
+ULTRON: Let's identify the exact part that is confusing.
+
+USER: Can we try again?
+ULTRON: Yes. We can restart from the first step.
+
+USER: I understand now.
+ULTRON: Great. Try explaining the idea in your own words.
+
+USER: What if there are two possible answers?
+ULTRON: Compare both answers with the information in the question.
+
+USER: Can you give me an example?
+ULTRON: Sure. I will give a simple example first.
+
+USER: Can you make this more formal?
+ULTRON: Yes. I will keep the meaning and use a more formal tone.
+
+USER: Can you make this more casual?
+ULTRON: Sure. I will keep the meaning and use simpler conversational wording.
+
+USER: Can you check my punctuation?
+ULTRON: Yes. I will check spacing, punctuation, and sentence endings.
+
+USER: Why is there a space here?
+ULTRON: The space separates two neighboring words.
+
+USER: Why is there no space there?
+ULTRON: The punctuation mark is normally attached to the preceding word.
+
+USER: I am confused.
+ULTRON: Let's identify the exact part that is confusing.
+
+USER: Can we try again?
+ULTRON: Yes. We can restart from the first step.
+
+USER: I understand now.
+ULTRON: Great. Try explaining the idea in your own words.
+
+USER: What if there are two possible answers?
+ULTRON: Compare both answers with the information in the question.
+
+USER: Can you give me an example?
+ULTRON: Sure. I will give a simple example first.
+
+USER: Can you make this more formal?
+ULTRON: Yes. I will keep the meaning and use a more formal tone.
+
+USER: Can you make this more casual?
+ULTRON: Sure. I will keep the meaning and use simpler conversational wording.
+
+USER: Can you check my punctuation?
+ULTRON: Yes. I will check spacing, punctuation, and sentence endings.
+
+USER: Why is there a space here?
+ULTRON: The space separates two neighboring words.
+
+USER: Why is there no space there?
+ULTRON: The punctuation mark is normally attached to the preceding word.
+
+USER: I am confused.
+ULTRON: Let's identify the exact part that is confusing.
+
+USER: Can we try again?
+ULTRON: Yes. We can restart from the first step.
+
+USER: I understand now.
+ULTRON: Great. Try explaining the idea in your own words.
+
+USER: What if there are two possible answers?
+ULTRON: Compare both answers with the information in the question.
+
+USER: Can you give me an example?
+ULTRON: Sure. I will give a simple example first.
+
+USER: Can you make this more formal?
+ULTRON: Yes. I will keep the meaning and use a more formal tone.
+
+USER: Can you make this more casual?
+ULTRON: Sure. I will keep the meaning and use simpler conversational wording.
+
+USER: Can you check my punctuation?
+ULTRON: Yes. I will check spacing, punctuation, and sentence endings.
+
+USER: Why is there a space here?
+ULTRON: The space separates two neighboring words.
+
+USER: Why is there no space there?
+ULTRON: The punctuation mark is normally attached to the preceding word.
+
+USER: I am confused.
+ULTRON: Let's identify the exact part that is confusing.
+
+USER: Can we try again?
+ULTRON: Yes. We can restart from the first step.
+
+USER: I understand now.
+ULTRON: Great. Try explaining the idea in your own words.
+
+USER: What if there are two possible answers?
+ULTRON: Compare both answers with the information in the question.
+
+USER: Can you give me an example?
+ULTRON: Sure. I will give a simple example first.
+
+USER: Can you make this more formal?
+ULTRON: Yes. I will keep the meaning and use a more formal tone.
+
+USER: Can you make this more casual?
+ULTRON: Sure. I will keep the meaning and use simpler conversational wording.
+
+USER: Can you check my punctuation?
+ULTRON: Yes. I will check spacing, punctuation, and sentence endings.
+
+USER: Why is there a space here?
+ULTRON: The space separates two neighboring words.
+
+USER: Why is there no space there?
+ULTRON: The punctuation mark is normally attached to the preceding word.
