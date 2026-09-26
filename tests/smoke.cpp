@@ -23,10 +23,15 @@ int main() {
     assert(std::fabs(product.at(1, 1) - 50.0f) < 1e-5f);
 
     Tokenizer tokenizer;
-    tokenizer.train("hello world, hello ultron!");
-    const auto encoded = tokenizer.encode("hello ultron!");
-    assert(encoded.size() == 3);
-    assert(tokenizer.vocabulary_size() >= 5);
+    const std::string tokenizer_text =
+        "Hello world, hello ultron! What is attention?";
+    tokenizer.train(tokenizer_text);
+    const auto encoded =
+        tokenizer.encode("WHAT is attention?");
+    assert(!encoded.empty());
+    assert(tokenizer.vocabulary_size() >= 257);
+    assert(tokenizer.is_trained());
+    assert(tokenizer.decode(encoded) == "what is attention?");
 
     AdamOptimizer optimizer(1, 0.01f);
     std::vector<float> weight{1.0f};
@@ -71,7 +76,7 @@ int main() {
     model.train(
         "hello ultron hello ultron hello ultron",
         2,
-        0.01f);
+        0.001f);
 
     const auto metrics =
         model.evaluate(
