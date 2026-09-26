@@ -3,7 +3,7 @@ param(
     [int]$Rounds = 5,
     [int]$ReplayEpochs = 5,
     [float]$LearningRate = 0.001,
-    [string]$Checkpoint = "models/ultron.bin",
+    [string]$Checkpoint = "models/ultron_bpe.bin",
     [switch]$ResetTeacherCorpus
 )
 
