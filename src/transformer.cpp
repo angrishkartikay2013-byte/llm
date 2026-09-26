@@ -5,12 +5,31 @@
 #include <cmath>
 #include <limits>
 #include <random>
+#include <thread>
 #include <stdexcept>
 #include <istream>
 #include <ostream>
 
 
 namespace {
+
+std::size_t transformer_thread_count(
+    std::size_t sequence_length) {
+
+    const unsigned int hardware_threads =
+        std::thread::hardware_concurrency();
+
+    const std::size_t available_threads =
+        hardware_threads == 0
+            ? 1
+            : static_cast<std::size_t>(hardware_threads);
+
+    return std::max<std::size_t>(
+        1,
+        std::min(
+            sequence_length,
+            available_threads));
+}
 
 bool transformer_write_u64(
     std::ostream& output,
