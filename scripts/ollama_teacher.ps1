@@ -34,6 +34,12 @@ if (!(Test-Path $baseCorpusPath)) {
     throw "Base training corpus not found: data/train.txt"
 }
 
+ctest --test-dir (Join-Path $repoRoot "build") --output-on-failure
+
+if ($LASTEXITCODE -ne 0) {
+    throw "ULTRON smoke tests failed. Teacher training was not started."
+}
+
 if ($ResetTeacherCorpus) {
     Remove-Item $teacherCorpusPath -Force -ErrorAction SilentlyContinue
     Remove-Item $combinedCorpusPath -Force -ErrorAction SilentlyContinue
