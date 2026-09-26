@@ -127,7 +127,8 @@ std::vector<std::string> Tokenizer::split(
             const bool keep_space_before =
                 preserve_layout &&
                 !pending_whitespace.empty() &&
-                (c == '(' || c == '[' || c == '{');
+                (c == '(' || c == '[' || c == '{' ||
+                 c == '"' || c == '\\'');
 
             if (keep_space_before) {
                 punctuation = pending_whitespace;

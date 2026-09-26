@@ -31,6 +31,21 @@ int run_ultron_smoke_tests() {
     assert(encoded.size() == 3);
     assert(tokenizer.vocabulary_size() >= 5);
 
+    Tokenizer layout_tokenizer;
+    const std::string layout_text =
+        "Hello, I'm ready.\nHow are you?";
+    layout_tokenizer.train(layout_text);
+
+    const auto layout_tokens =
+        layout_tokenizer.encode(layout_text);
+
+    const std::string layout_decoded =
+        layout_tokenizer.decode(layout_tokens);
+
+    assert(
+        layout_decoded ==
+        "hello, i'm ready.\nhow are you?");
+
     AdamOptimizer optimizer(1, 0.01f);
     std::vector<float> weight{1.0f};
     optimizer.step(weight, std::vector<float>{0.5f});
