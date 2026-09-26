@@ -415,8 +415,7 @@ void Tokenizer::learn_bpe(
     std::cout
         << "[tokenizer] CPU worker threads: "
         << bpe_threads
-        << '
-';
+        << '\n';
 
     std::cout
         << "[tokenizer] learning up to "
@@ -642,7 +641,6 @@ void Tokenizer::learn_bpe(
 
         for (auto& worker : merge_workers) {
             worker.join();
-        }
         }
     }
     std::cout
