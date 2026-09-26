@@ -1,10 +1,13 @@
 #include "transformer.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <limits>
 #include <random>
 #include <stdexcept>
+#include <istream>
+#include <ostream>
 
 TransformerBlock::Matrix TransformerBlock::random_matrix(
     std::size_t rows,
@@ -217,4 +220,79 @@ std::vector<std::vector<float>> TransformerBlock::forward(
     // Keep the old signature source-compatible with the early engine.
     (void)attention_weights;
     return forward(embeddings);
+}
+
+
+bool TransformerBlock::save(
+    std::ostream& output) const {
+
+    if (!transformer_write_u64(
+            output,
+            static_cast<std::uint64_t>(embedding_size_)) ||
+        !transformer_write_u64(
+            output,
+            static_cast<std::uint64_t>(num_heads_)) ||
+        !transformer_write_u64(
+            output,
+            static_cast<std::uint64_t>(feed_forward_size_))) {
+        return false;
+    }
+
+    return transformer_write_matrix(output, query_weight_) &&
+           transformer_write_matrix(output, key_weight_) &&
+           transformer_write_matrix(output, value_weight_) &&
+           transformer_write_matrix(output, output_weight_) &&
+           transformer_write_matrix(output, feed_forward_in_) &&
+           transformer_write_matrix(output, feed_forward_out_);
+}
+
+bool TransformerBlock::load(
+    std::istream& input) {
+
+    std::uint64_t embedding_size = 0;
+    std::uint64_t num_heads = 0;
+    std::uint64_t feed_forward_size = 0;
+
+    if (!transformer_read_u64(input, embedding_size) ||
+        !transformer_read_u64(input, num_heads) ||
+        !transformer_read_u64(input, feed_forward_size)) {
+        return false;
+    }
+
+    if (embedding_size != embedding_size_ ||
+        num_heads != num_heads_ ||
+        feed_forward_size != feed_forward_size_) {
+        return false;
+    }
+
+    return transformer_read_matrix(
+               input,
+               query_weight_,
+               embedding_size_,
+               embedding_size_) &&
+           transformer_read_matrix(
+               input,
+               key_weight_,
+               embedding_size_,
+               embedding_size_) &&
+           transformer_read_matrix(
+               input,
+               value_weight_,
+               embedding_size_,
+               embedding_size_) &&
+           transformer_read_matrix(
+               input,
+               output_weight_,
+               embedding_size_,
+               embedding_size_) &&
+           transformer_read_matrix(
+               input,
+               feed_forward_in_,
+               embedding_size_,
+               feed_forward_size_) &&
+           transformer_read_matrix(
+               input,
+               feed_forward_out_,
+               feed_forward_size_,
+               embedding_size_);
 }
