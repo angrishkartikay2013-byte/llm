@@ -122,7 +122,7 @@ if ($LASTEXITCODE -ne 0) {
 
 $trainingDuration = $trainingEnd - $trainingStart
 Write-Host ""
-Write-Host ("ULTRON training process finished in {0:hh\\:mm\\:ss}" -f $trainingDuration)
+Write-Host ("ULTRON training process finished in {0:hh\:mm\:ss}" -f $trainingDuration)
 Write-Host "Now checking the saved checkpoint..."
 Write-Host ""
 
