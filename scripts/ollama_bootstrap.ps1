@@ -4,7 +4,9 @@ param(
     [int]$SentencesPerBatch = 30,
     [int]$Epochs = 1,
     [double]$LearningRate = 0.003,
-    [string]$Output = "data/external/ollama_distill.txt"
+    [string]$Output = "data/external/ollama_distill.txt",
+    [string]$Checkpoint = "models/ultron.bin",
+    [switch]$Fresh
 )
 
 $ErrorActionPreference = "Stop"
@@ -143,7 +145,25 @@ if (!(Test-Path $exe)) {
 }
 
 Write-Host "Training ULTRON on the Ollama-generated corpus..."
-& $exe --train $combinedPath --epochs $Epochs --lr $LearningRate --save (Join-Path $repoRoot "models/ultron.bin")
+
+$checkpointPath = Join-Path $repoRoot $Checkpoint
+$arguments = @(
+    "--train", $combinedPath,
+    "--epochs", $Epochs,
+    "--lr", $LearningRate,
+    "--save", $Checkpoint
+)
+
+if ((Test-Path $checkpointPath) -and !$Fresh) {
+    Write-Host "Resuming from checkpoint: $Checkpoint"
+    $arguments += @("--load", $Checkpoint)
+} elseif ($Fresh) {
+    Write-Host "Starting a fresh ULTRON model."
+} else {
+    Write-Host "No checkpoint found; starting a fresh ULTRON model."
+}
+
+& $exe @arguments
 
 if ($LASTEXITCODE -ne 0) {
     throw "ULTRON training failed with exit code $LASTEXITCODE."
