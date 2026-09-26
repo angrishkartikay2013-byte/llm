@@ -1,5 +1,6 @@
 #include "embedding.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <istream>
 #include <ostream>
@@ -79,6 +80,49 @@ std::size_t Embedding::vocabulary_size() const {
 
 std::size_t Embedding::embedding_size() const {
     return embedding_size_;
+}
+
+std::size_t Embedding::parameter_count() const {
+    return vocabulary_size_ * embedding_size_;
+}
+
+void Embedding::get_parameters(
+    std::vector<float>& parameters) const {
+
+    parameters.resize(parameter_count());
+
+    for (std::size_t token = 0;
+         token < vocabulary_size_;
+         ++token) {
+        std::copy(
+            weights_[token].begin(),
+            weights_[token].end(),
+            parameters.begin() +
+                static_cast<std::ptrdiff_t>(
+                    token * embedding_size_));
+    }
+}
+
+void Embedding::set_parameters(
+    const std::vector<float>& parameters) {
+
+    if (parameters.size() != parameter_count()) {
+        throw std::invalid_argument(
+            "Embedding parameter size mismatch");
+    }
+
+    for (std::size_t token = 0;
+         token < vocabulary_size_;
+         ++token) {
+        std::copy(
+            parameters.begin() +
+                static_cast<std::ptrdiff_t>(
+                    token * embedding_size_),
+            parameters.begin() +
+                static_cast<std::ptrdiff_t>(
+                    (token + 1) * embedding_size_),
+            weights_[token].begin());
+    }
 }
 
 bool Embedding::save(std::ostream& output) const {

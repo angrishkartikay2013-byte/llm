@@ -23,7 +23,6 @@ set(ULTRON_CORE_SOURCES
     src/optimizer.cpp
     src/trainer.cpp
     src/model.cpp
-    src/self_test.cpp
 )
 
 add_executable(ultron
@@ -47,7 +46,12 @@ endif()
 
 include(CTest)
 if (BUILD_TESTING)
-    add_test(NAME ultron_smoke_tests COMMAND ultron --self-test)
+    add_executable(ultron_smoke_tests
+        tests/smoke.cpp
+        ${ULTRON_CORE_SOURCES}
+    )
+    target_include_directories(ultron_smoke_tests PRIVATE include)
+    add_test(NAME ultron_smoke_tests COMMAND ultron_smoke_tests)
 endif()
 
 option(ULTRON_BUILD_BENCHMARK "Build the CPU inference benchmark" OFF)

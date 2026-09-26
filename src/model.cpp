@@ -11,9 +11,9 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
-#include <limits>
 #include <random>
 #include <sstream>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -39,6 +39,63 @@ bool write_u64(std::ostream& output, std::uint64_t value) {
 bool read_u64(std::istream& input, std::uint64_t& value) {
     input.read(reinterpret_cast<char*>(&value), sizeof(value));
     return static_cast<bool>(input);
+}
+
+void add_scaled(
+    std::vector<float>& target,
+    const std::vector<float>& source,
+    float scale) {
+
+    if (target.size() != source.size()) {
+        throw std::invalid_argument(
+            "Model gradient shape mismatch");
+    }
+
+    for (std::size_t i = 0; i < target.size(); ++i) {
+        target[i] += source[i] * scale;
+    }
+}
+
+void scale_in_place(
+    std::vector<float>& values,
+    float scale) {
+
+    for (float& value : values) {
+        value *= scale;
+    }
+}
+
+void clip_gradients(
+    std::vector<float>& gradients,
+    float max_norm) {
+
+    if (gradients.empty() || max_norm <= 0.0f) {
+        return;
+    }
+
+    double squared_norm = 0.0;
+
+    for (const float value : gradients) {
+        squared_norm +=
+            static_cast<double>(value) *
+            static_cast<double>(value);
+    }
+
+    const double norm =
+        std::sqrt(squared_norm);
+
+    if (norm <= static_cast<double>(max_norm) ||
+        norm <= 1e-12) {
+        return;
+    }
+
+    const float scale =
+        max_norm /
+        static_cast<float>(norm);
+
+    scale_in_place(
+        gradients,
+        scale);
 }
 }
 
@@ -149,22 +206,25 @@ public:
         }
     }
 
-    std::vector<std::vector<float>> encode_context(
-        const std::vector<int>& tokens) const {
+    std::vector<std::vector<float>> make_context_states(
+        const std::vector<int>& tokens,
+        std::size_t& context_start) const {
 
         if (tokens.empty()) {
+            context_start = 0;
             return {};
         }
 
-        const std::size_t start =
+        context_start =
             tokens.size() > kMaxSequenceLength
                 ? tokens.size() - kMaxSequenceLength
                 : 0;
 
         std::vector<std::vector<float>> states;
-        states.reserve(tokens.size() - start);
+        states.reserve(
+            tokens.size() - context_start);
 
-        for (std::size_t index = start;
+        for (std::size_t index = context_start;
              index < tokens.size();
              ++index) {
 
@@ -178,7 +238,7 @@ public:
                 embedding.lookup(token_id);
 
             const std::size_t position =
-                index - start;
+                index - context_start;
 
             for (std::size_t dimension = 0;
                  dimension < kEmbeddingSize;
@@ -187,7 +247,27 @@ public:
                     positional[position][dimension];
             }
 
-            states.push_back(std::move(state));
+            states.push_back(
+                std::move(state));
+        }
+
+        return states;
+    }
+
+    std::vector<std::vector<float>> encode_context(
+        const std::vector<int>& tokens) const {
+
+        std::size_t context_start = 0;
+
+        const auto states =
+            make_context_states(
+                tokens,
+                context_start);
+
+        (void)context_start;
+
+        if (states.empty()) {
+            return {};
         }
 
         return transformer.forward(states);
@@ -238,7 +318,11 @@ float ULTRONModel::train(
     std::size_t epochs,
     float learning_rate) {
 
-    if (text.empty() || epochs == 0) return 0.0f;
+    if (text.empty() ||
+        epochs == 0 ||
+        learning_rate <= 0.0f) {
+        return 0.0f;
+    }
 
     const std::size_t old_vocab =
         impl_->tokenizer.vocabulary_size();
@@ -249,62 +333,80 @@ float ULTRONModel::train(
         impl_->rebuild_trainable_parameters();
     }
 
-    const auto tokens = impl_->tokenizer.encode(text);
+    const auto tokens =
+        impl_->tokenizer.encode(text);
 
-    if (tokens.size() < 2) return 0.0f;
-
-    const std::size_t output_parameter_count =
-        impl_->output_weights.size() *
-        kEmbeddingSize;
-
-    AdamOptimizer output_optimizer(
-        output_parameter_count,
-        learning_rate);
-
-    std::vector<float> weights(output_parameter_count);
-    std::vector<float> gradients(output_parameter_count);
-
-    for (std::size_t token = 0;
-         token < impl_->output_weights.size();
-         ++token) {
-        std::copy(
-            impl_->output_weights[token].begin(),
-            impl_->output_weights[token].end(),
-            weights.begin() +
-                static_cast<std::ptrdiff_t>(
-                    token * kEmbeddingSize));
+    if (tokens.size() < 2) {
+        return 0.0f;
     }
 
-    double total_loss = 0.0;
-    std::size_t samples = 0;
+    std::vector<float> output_parameters;
+    for (const auto& row : impl_->output_weights) {
+        output_parameters.insert(
+            output_parameters.end(),
+            row.begin(),
+            row.end());
+    }
+
+    std::vector<float> transformer_parameters;
+    impl_->transformer.get_parameters(
+        transformer_parameters);
+
+    std::vector<float> embedding_parameters;
+    impl_->embedding.get_parameters(
+        embedding_parameters);
+
+    AdamOptimizer output_optimizer(
+        output_parameters.size(),
+        learning_rate);
+
+    AdamOptimizer transformer_optimizer(
+        transformer_parameters.size(),
+        learning_rate * 0.5f);
+
+    AdamOptimizer embedding_optimizer(
+        embedding_parameters.size(),
+        learning_rate * 0.5f);
+
+    float last_epoch_loss = 0.0f;
 
     for (std::size_t epoch = 0;
          epoch < epochs;
          ++epoch) {
 
-        // Compute the Transformer once for the complete sequence.
-        // The previous implementation recomputed every prefix separately.
+        std::size_t context_start = 0;
+
+        const auto states =
+            impl_->make_context_states(
+                tokens,
+                context_start);
+
         const auto hidden_states =
-            impl_->encode_context(tokens);
+            impl_->transformer.forward(states);
 
         if (hidden_states.empty()) {
             continue;
         }
 
-        const std::size_t context_start =
-            tokens.size() > kMaxSequenceLength
-                ? tokens.size() - kMaxSequenceLength
-                : 0;
+        std::vector<std::vector<float>> grad_hidden(
+            hidden_states.size(),
+            std::vector<float>(
+                kEmbeddingSize,
+                0.0f));
 
-        for (std::size_t local_position = 0;
-             local_position + 1 < hidden_states.size();
-             ++local_position) {
+        std::vector<float> output_gradients(
+            output_parameters.size(),
+            0.0f);
 
-            const std::size_t position =
-                context_start + local_position;
+        double epoch_loss = 0.0;
+        std::size_t samples = 0;
+
+        for (std::size_t position = 0;
+             position + 1 < hidden_states.size();
+             ++position) {
 
             const auto& hidden =
-                hidden_states[local_position];
+                hidden_states[position];
 
             std::vector<float> current_logits(
                 impl_->output_weights.size(),
@@ -320,7 +422,7 @@ float ULTRONModel::train(
 
                     current_logits[token] +=
                         hidden[dimension] *
-                        weights[
+                        output_parameters[
                             token * kEmbeddingSize +
                             dimension];
                 }
@@ -332,38 +434,177 @@ float ULTRONModel::train(
             const std::size_t target =
                 static_cast<std::size_t>(
                     std::max(
-                        tokens[position + 1],
+                        tokens[
+                            context_start +
+                            position + 1],
                         0));
 
-            total_loss +=
+            epoch_loss +=
                 ultron_cross_entropy_loss(
                     probabilities,
                     target);
 
             ++samples;
 
-            ultron_output_gradient(
-                hidden,
-                probabilities,
-                target,
-                gradients);
+            for (std::size_t token = 0;
+                 token < probabilities.size();
+                 ++token) {
 
-            // The current engine does not yet have a complete Transformer
-            // backward pass. Keep training the output projection here rather
-            // than pretending that the output gradient is an exact embedding
-            // gradient through attention and layer normalization.
-            output_optimizer.step(
-                weights,
-                gradients);
+                const float error =
+                    probabilities[token] -
+                    (token == target ? 1.0f : 0.0f);
+
+                for (std::size_t dimension = 0;
+                     dimension < kEmbeddingSize;
+                     ++dimension) {
+
+                    const std::size_t parameter =
+                        token * kEmbeddingSize +
+                        dimension;
+
+                    output_gradients[parameter] +=
+                        error *
+                        hidden[dimension];
+
+                    grad_hidden[position][dimension] +=
+                        error *
+                        output_parameters[parameter];
+                }
+            }
         }
+
+        if (samples == 0) {
+            continue;
+        }
+
+        const float inverse_samples =
+            1.0f /
+            static_cast<float>(samples);
+
+        scale_in_place(
+            output_gradients,
+            inverse_samples);
+
+        for (auto& row : grad_hidden) {
+            scale_in_place(
+                row,
+                inverse_samples);
+        }
+
+        TransformerBlock::Gradients transformer_gradients;
+
+        std::vector<std::vector<float>> grad_states;
+
+        impl_->transformer.backward(
+            states,
+            grad_hidden,
+            grad_states,
+            transformer_gradients);
+
+        std::vector<float> transformer_gradients_flat;
+        impl_->transformer.flatten_gradients(
+            transformer_gradients,
+            transformer_gradients_flat);
+
+        scale_in_place(
+            transformer_gradients_flat,
+            inverse_samples);
+
+        std::vector<float> embedding_gradients(
+            embedding_parameters.size(),
+            0.0f);
+
+        for (std::size_t local_position = 0;
+             local_position < grad_states.size();
+             ++local_position) {
+
+            const std::size_t token_position =
+                context_start +
+                local_position;
+
+            if (token_position >= tokens.size()) {
+                break;
+            }
+
+            const int token_value =
+                tokens[token_position];
+
+            if (token_value < 0) {
+                continue;
+            }
+
+            const std::size_t token_id =
+                static_cast<std::size_t>(
+                    token_value);
+
+            if (token_id >= impl_->embedding.vocabulary_size()) {
+                continue;
+            }
+
+            for (std::size_t dimension = 0;
+                 dimension < kEmbeddingSize;
+                 ++dimension) {
+
+                embedding_gradients[
+                    token_id * kEmbeddingSize +
+                    dimension] +=
+                    grad_states[
+                        local_position][dimension] *
+                    inverse_samples;
+            }
+        }
+
+        clip_gradients(
+            output_gradients,
+            5.0f);
+
+        clip_gradients(
+            transformer_gradients_flat,
+            5.0f);
+
+        clip_gradients(
+            embedding_gradients,
+            5.0f);
+
+        output_optimizer.step(
+            output_parameters,
+            output_gradients);
+
+        transformer_optimizer.step(
+            transformer_parameters,
+            transformer_gradients_flat);
+
+        embedding_optimizer.step(
+            embedding_parameters,
+            embedding_gradients);
+
+        impl_->transformer.set_parameters(
+            transformer_parameters);
+
+        impl_->embedding.set_parameters(
+            embedding_parameters);
+
+        for (std::size_t token = 0;
+             token < impl_->output_weights.size();
+             ++token) {
+
+            std::copy(
+                output_parameters.begin() +
+                    static_cast<std::ptrdiff_t>(
+                        token * kEmbeddingSize),
+                output_parameters.begin() +
+                    static_cast<std::ptrdiff_t>(
+                        (token + 1) * kEmbeddingSize),
+                impl_->output_weights[token].begin());
+        }
+
+        last_epoch_loss =
+            static_cast<float>(
+                epoch_loss /
+                static_cast<double>(samples));
 
         if ((epoch + 1) == epochs ||
             (epoch + 1) % 5 == 0) {
-            const double mean_loss =
-                samples == 0
-                    ? 0.0
-                    : total_loss /
-                        static_cast<double>(samples);
 
             std::cout
                 << "epoch "
@@ -371,30 +612,12 @@ float ULTRONModel::train(
                 << "/"
                 << epochs
                 << " loss="
-                << mean_loss
+                << last_epoch_loss
                 << '\n';
         }
     }
 
-    for (std::size_t token = 0;
-         token < impl_->output_weights.size();
-         ++token) {
-
-        std::copy(
-            weights.begin() +
-                static_cast<std::ptrdiff_t>(
-                    token * kEmbeddingSize),
-            weights.begin() +
-                static_cast<std::ptrdiff_t>(
-                    (token + 1) * kEmbeddingSize),
-            impl_->output_weights[token].begin());
-    }
-
-    return samples == 0
-        ? 0.0f
-        : static_cast<float>(
-            total_loss /
-            static_cast<double>(samples));
+    return last_epoch_loss;
 }
 
 ModelEvaluation ULTRONModel::evaluate(
@@ -432,14 +655,17 @@ ModelEvaluation ULTRONModel::evaluate(
         if (hidden_states.empty()) continue;
 
         const auto logits =
-            impl_->logits(hidden_states.back());
+            impl_->logits(
+                hidden_states.back());
 
         const auto probabilities =
             ultron_softmax(logits);
 
         const std::size_t target =
             static_cast<std::size_t>(
-                std::max(tokens[position + 1], 0));
+                std::max(
+                    tokens[position + 1],
+                    0));
 
         if (target >= probabilities.size()) continue;
 
@@ -507,7 +733,8 @@ std::string ULTRONModel::generate(
         if (hidden_states.empty()) break;
 
         const auto raw_logits =
-            impl_->logits(hidden_states.back());
+            impl_->logits(
+                hidden_states.back());
 
         std::vector<float> scaled_logits(
             raw_logits.size());
@@ -519,8 +746,6 @@ std::string ULTRONModel::generate(
                 raw_logits[i] / temperature;
         }
 
-        // Reduce pathological repetition during sampling while keeping
-        // the model's learned probability distribution mostly intact.
         constexpr float repetition_penalty = 1.15f;
 
         for (const int previous_token : tokens) {
@@ -553,7 +778,8 @@ std::string ULTRONModel::generate(
             std::partial_sort(
                 candidates.begin(),
                 candidates.begin() +
-                    static_cast<std::ptrdiff_t>(top_k),
+                    static_cast<std::ptrdiff_t>(
+                        top_k),
                 candidates.end(),
                 [&](std::size_t a, std::size_t b) {
                     return scaled_logits[a] >
@@ -564,7 +790,8 @@ std::string ULTRONModel::generate(
         }
 
         std::vector<float> candidate_logits;
-        candidate_logits.reserve(candidates.size());
+        candidate_logits.reserve(
+            candidates.size());
 
         for (std::size_t candidate :
              candidates) {
@@ -573,7 +800,8 @@ std::string ULTRONModel::generate(
         }
 
         const auto probabilities =
-            ultron_softmax(candidate_logits);
+            ultron_softmax(
+                candidate_logits);
 
         std::discrete_distribution<std::size_t>
             sampler(
@@ -676,7 +904,9 @@ bool ULTRONModel::load_checkpoint(
 
     if (!tokenizer.load(input)) return false;
 
-    Embedding embedding(1, kEmbeddingSize);
+    Embedding embedding(
+        1,
+        kEmbeddingSize);
 
     if (!embedding.load(input) ||
         embedding.embedding_size() != kEmbeddingSize ||
@@ -722,10 +952,14 @@ bool ULTRONModel::load_checkpoint(
 
     impl_->tokenizer = std::move(tokenizer);
     impl_->embedding = std::move(embedding);
+
     if (version >= 2) {
-        impl_->transformer = std::move(transformer);
+        impl_->transformer =
+            std::move(transformer);
     }
-    impl_->output_weights = std::move(weights);
+
+    impl_->output_weights =
+        std::move(weights);
 
     return true;
 }

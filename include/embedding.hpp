@@ -19,6 +19,14 @@ public:
     std::size_t vocabulary_size() const;
     std::size_t embedding_size() const;
 
+    std::size_t parameter_count() const;
+
+    void get_parameters(
+        std::vector<float>& parameters) const;
+
+    void set_parameters(
+        const std::vector<float>& parameters);
+
     bool save(std::ostream& output) const;
     bool load(std::istream& input);
 
