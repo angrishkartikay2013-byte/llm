@@ -112,6 +112,7 @@ void Tokenizer::initialize_bpe_base() {
     }
 
     bpe_mode_ = true;
+    bpe_trained_ = false;
     legacy_preserve_layout_ = true;
 }
 
@@ -237,6 +238,7 @@ void Tokenizer::learn_bpe(
     const std::string& text) {
 
     merges_.clear();
+    bpe_trained_ = true;
 
     if (text.empty()) {
         return;
@@ -451,7 +453,7 @@ void Tokenizer::train(
     const std::string& text) {
 
     if (bpe_mode_) {
-        if (merges_.empty()) {
+        if (!bpe_trained_) {
             learn_bpe(text);
         }
         return;
@@ -699,6 +701,7 @@ bool Tokenizer::load(
         }
 
         bpe_mode_ = false;
+        bpe_trained_ = false;
         return !id_to_token_.empty();
     }
 
@@ -818,6 +821,7 @@ bool Tokenizer::load(
     }
 
     bpe_mode_ = bpe_flag != 0;
+    bpe_trained_ = bpe_mode_;
     legacy_preserve_layout_ =
         layout_flag != 0;
     merges_ = std::move(merges);
