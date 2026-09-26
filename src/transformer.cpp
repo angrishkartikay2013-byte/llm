@@ -9,6 +9,94 @@
 #include <istream>
 #include <ostream>
 
+
+namespace {
+
+bool transformer_write_u64(
+    std::ostream& output,
+    std::uint64_t value) {
+    output.write(
+        reinterpret_cast<const char*>(&value),
+        sizeof(value));
+    return static_cast<bool>(output);
+}
+
+bool transformer_read_u64(
+    std::istream& input,
+    std::uint64_t& value) {
+    input.read(
+        reinterpret_cast<char*>(&value),
+        sizeof(value));
+    return static_cast<bool>(input);
+}
+
+bool transformer_write_matrix(
+    std::ostream& output,
+    const TransformerBlock::Matrix& matrix) {
+    if (!transformer_write_u64(
+            output,
+            static_cast<std::uint64_t>(matrix.size()))) {
+        return false;
+    }
+
+    const std::size_t columns =
+        matrix.empty() ? 0 : matrix.front().size();
+
+    if (!transformer_write_u64(
+            output,
+            static_cast<std::uint64_t>(columns))) {
+        return false;
+    }
+
+    for (const auto& row : matrix) {
+        if (row.size() != columns) return false;
+
+        output.write(
+            reinterpret_cast<const char*>(row.data()),
+            static_cast<std::streamsize>(
+                row.size() * sizeof(float)));
+
+        if (!output) return false;
+    }
+
+    return true;
+}
+
+bool transformer_read_matrix(
+    std::istream& input,
+    TransformerBlock::Matrix& matrix,
+    std::size_t expected_rows,
+    std::size_t expected_columns) {
+    std::uint64_t rows = 0;
+    std::uint64_t columns = 0;
+
+    if (!transformer_read_u64(input, rows) ||
+        !transformer_read_u64(input, columns) ||
+        rows != expected_rows ||
+        columns != expected_columns) {
+        return false;
+    }
+
+    matrix.assign(
+        expected_rows,
+        std::vector<float>(
+            expected_columns,
+            0.0f));
+
+    for (auto& row : matrix) {
+        input.read(
+            reinterpret_cast<char*>(row.data()),
+            static_cast<std::streamsize>(
+                row.size() * sizeof(float)));
+
+        if (!input) return false;
+    }
+
+    return true;
+}
+
+} // namespace
+
 TransformerBlock::Matrix TransformerBlock::random_matrix(
     std::size_t rows,
     std::size_t cols,
