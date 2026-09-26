@@ -8,9 +8,60 @@
 #include <stdexcept>
 #include <istream>
 #include <ostream>
-
+#include <thread>
 
 namespace {
+
+template <typename Function>
+void parallel_for_indices(
+    std::size_t count,
+    Function&& function) {
+
+    if (count <= 1) {
+        if (count == 1) function(0);
+        return;
+    }
+
+    const unsigned int detected =
+        std::thread::hardware_concurrency();
+
+    const std::size_t thread_count =
+        std::max<std::size_t>(
+            1,
+            std::min<std::size_t>(
+                count,
+                detected == 0
+                    ? 1
+                    : static_cast<std::size_t>(detected)));
+
+    if (thread_count <= 1) {
+        for (std::size_t index = 0; index < count; ++index) {
+            function(index);
+        }
+        return;
+    }
+
+    std::vector<std::thread> workers;
+    workers.reserve(thread_count);
+
+    for (std::size_t worker = 0; worker < thread_count; ++worker) {
+        workers.emplace_back([&, worker]() {
+            const std::size_t begin =
+                (count * worker) / thread_count;
+            const std::size_t end =
+                (count * (worker + 1)) / thread_count;
+
+            for (std::size_t index = begin; index < end; ++index) {
+                function(index);
+            }
+        });
+    }
+
+    for (auto& worker : workers) {
+        worker.join();
+    }
+}
+
 
 bool transformer_write_u64(
     std::ostream& output,
@@ -483,14 +534,16 @@ std::vector<std::vector<float>> TransformerBlock::forward(
     std::vector<std::vector<float>> values(
         sequence_length);
 
-    for (std::size_t i = 0; i < sequence_length; ++i) {
-        queries[i] =
-            linear(embeddings[i], query_weight_);
-        keys[i] =
-            linear(embeddings[i], key_weight_);
-        values[i] =
-            linear(embeddings[i], value_weight_);
-    }
+    parallel_for_indices(
+        sequence_length,
+        [&](std::size_t i) {
+            queries[i] =
+                linear(embeddings[i], query_weight_);
+            keys[i] =
+                linear(embeddings[i], key_weight_);
+            values[i] =
+                linear(embeddings[i], value_weight_);
+        });
 
     std::vector<std::vector<std::vector<float>>> attention_weights(
         sequence_length,
@@ -508,9 +561,9 @@ std::vector<std::vector<float>> TransformerBlock::forward(
         std::sqrt(
             static_cast<float>(head_size_));
 
-    for (std::size_t query = 0;
-         query < sequence_length;
-         ++query) {
+    parallel_for_indices(
+        sequence_length,
+        [&](std::size_t query) {
 
         for (std::size_t head = 0;
              head < num_heads_;
@@ -629,45 +682,45 @@ std::vector<std::vector<float>> TransformerBlock::forward(
     std::vector<std::vector<float>> output(
         sequence_length);
 
-    for (std::size_t i = 0;
-         i < sequence_length;
-         ++i) {
+    parallel_for_indices(
+        sequence_length,
+        [&](std::size_t i) {
 
-        ffn_pre[i] =
-            linear(
-                norm1[i],
-                feed_forward_in_);
+            ffn_pre[i] =
+                linear(
+                    norm1[i],
+                    feed_forward_in_);
 
-        ffn_activated[i].resize(
-            feed_forward_size_);
+            ffn_activated[i].resize(
+                feed_forward_size_);
 
-        for (std::size_t j = 0;
-             j < feed_forward_size_;
-             ++j) {
-            ffn_activated[i][j] =
-                gelu(
-                    ffn_pre[i][j]);
-        }
+            for (std::size_t j = 0;
+                 j < feed_forward_size_;
+                 ++j) {
+                ffn_activated[i][j] =
+                    gelu(
+                        ffn_pre[i][j]);
+            }
 
-        ffn_projected[i] =
-            linear(
-                ffn_activated[i],
-                feed_forward_out_);
+            ffn_projected[i] =
+                linear(
+                    ffn_activated[i],
+                    feed_forward_out_);
 
-        ffn_residual[i] =
-            norm1[i];
+            ffn_residual[i] =
+                norm1[i];
 
-        for (std::size_t dimension = 0;
-             dimension < embedding_size_;
-             ++dimension) {
-            ffn_residual[i][dimension] +=
-                ffn_projected[i][dimension];
-        }
+            for (std::size_t dimension = 0;
+                 dimension < embedding_size_;
+                 ++dimension) {
+                ffn_residual[i][dimension] +=
+                    ffn_projected[i][dimension];
+            }
 
-        output[i] =
-            layer_norm(
-                ffn_residual[i]);
-    }
+            output[i] =
+                layer_norm(
+                    ffn_residual[i]);
+        });
 
     return output;
 }
@@ -745,26 +798,26 @@ void TransformerBlock::backward(
             embedding_size_,
             0.0f));
 
-    for (std::size_t i = 0;
-         i < sequence_length;
-         ++i) {
-        queries[i] =
-            linear(
-                embeddings[i],
-                query_weight_);
-        keys[i] =
-            linear(
-                embeddings[i],
-                key_weight_);
-        values[i] =
-            linear(
-                embeddings[i],
-                value_weight_);
-    }
+    parallel_for_indices(
+        sequence_length,
+        [&](std::size_t i) {
+            queries[i] =
+                linear(
+                    embeddings[i],
+                    query_weight_);
+            keys[i] =
+                linear(
+                    embeddings[i],
+                    key_weight_);
+            values[i] =
+                linear(
+                    embeddings[i],
+                    value_weight_);
+        });
 
-    for (std::size_t query = 0;
-         query < sequence_length;
-         ++query) {
+    parallel_for_indices(
+        sequence_length,
+        [&](std::size_t query) {
 
         for (std::size_t head = 0;
              head < num_heads_;
