@@ -53,3 +53,16 @@ Then train with:
 Downloaded corpora and local model files are ignored by Git.
 
 Google Research also published the One Billion Word Benchmark, an approximately one-billion-word language-modeling corpus. It is useful for research, but it is far too large for the current CPU-only ULTRON experiments, so ULTRON does not automatically download it.
+
+
+## Ollama one-shot distillation
+
+ULTRON can temporarily use an installed local Ollama model to generate additional training sentences, train the local C++ model on them, and then unload the Ollama model.
+
+Run:
+
+    .\scripts\ollama_bootstrap.ps1 -Model "qwen3:8b" -Batches 2 -SentencesPerBatch 60 -Epochs 1
+
+The script talks only to Ollama on `http://localhost:11434`, writes the generated corpus to `data/external/ollama_distill.txt`, trains ULTRON, saves `models/ultron.bin`, and unloads the Ollama model afterwards. Ollama's `keep_alive: 0` request option is used so generated calls do not keep the model loaded.
+
+This is knowledge distillation/data synthesis: Ollama is the temporary teacher, while ULTRON remains the standalone model after the bootstrap finishes.
