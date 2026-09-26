@@ -84,6 +84,11 @@ int run_ultron_smoke_tests() {
     assert(std::isfinite(metrics.mean_loss));
     assert(std::isfinite(metrics.perplexity));
 
+    model.train(
+        "Question: what is the test answer?\nAnswer: learned memory works.",
+        2,
+        0.001f);
+
     const std::string generated =
         model.generate(
             "hello",
@@ -93,11 +98,6 @@ int run_ultron_smoke_tests() {
             42);
 
     assert(!generated.empty());
-
-    model.train(
-        "Question: what is the test answer?\nAnswer: learned memory works.",
-        2,
-        0.001f);
 
     const std::string learned =
         model.generate(
