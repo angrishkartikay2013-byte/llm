@@ -658,6 +658,31 @@ float ULTRONModel::train(
 
         std::size_t window_number = 0;
 
+        std::vector<std::size_t> window_starts;
+        window_starts.reserve(total_windows);
+
+        for (std::size_t window_start = 0;
+             window_start < tokens.size();
+             window_start += window_step) {
+            window_starts.push_back(window_start);
+        }
+
+        // Shuffle window order each epoch so the optimizer does not always
+        // see the corpus in exactly the same sequence. The seed is derived
+        // from the optimizer step count, making resumed runs use a different
+        // order from the original pass while remaining reproducible.
+        std::seed_seq shuffle_seed{
+            1337U,
+            static_cast<unsigned int>(epoch),
+            static_cast<unsigned int>(
+                impl_->output_optimizer->step_count())};
+
+        std::mt19937 shuffle_generator(shuffle_seed);
+        std::shuffle(
+            window_starts.begin(),
+            window_starts.end(),
+            shuffle_generator);
+
         std::cout
             << "[train] starting epoch "
             << (epoch + 1)
@@ -669,9 +694,7 @@ float ULTRONModel::train(
             << '\n';
         std::cout.flush();
 
-        for (std::size_t window_start = 0;
-             window_start < tokens.size();
-             window_start += window_step) {
+        for (const std::size_t window_start : window_starts) {
 
             ++window_number;
 
@@ -1076,9 +1099,6 @@ float ULTRONModel::train(
                 std::cout.flush();
             }
 
-            if (window_end == tokens.size()) {
-                break;
-            }
         }
 
         last_epoch_loss =
