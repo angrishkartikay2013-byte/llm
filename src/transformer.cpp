@@ -222,17 +222,18 @@ TransformerBlock::Matrix TransformerBlock::random_matrix(
 TransformerBlock::TransformerBlock(
     std::size_t embedding_size,
     std::size_t num_heads,
-    std::size_t feed_forward_size)
+    std::size_t feed_forward_size,
+    unsigned int seed)
     : embedding_size_(embedding_size),
       num_heads_(num_heads),
       head_size_(embedding_size / num_heads),
       feed_forward_size_(feed_forward_size),
-      query_weight_(random_matrix(embedding_size, embedding_size, 11)),
-      key_weight_(random_matrix(embedding_size, embedding_size, 12)),
-      value_weight_(random_matrix(embedding_size, embedding_size, 13)),
-      output_weight_(random_matrix(embedding_size, embedding_size, 14)),
-      feed_forward_in_(random_matrix(embedding_size, feed_forward_size, 15)),
-      feed_forward_out_(random_matrix(feed_forward_size, embedding_size, 16)) {
+      query_weight_(random_matrix(embedding_size, embedding_size, seed)),
+      key_weight_(random_matrix(embedding_size, embedding_size, seed + 1)),
+      value_weight_(random_matrix(embedding_size, embedding_size, seed + 2)),
+      output_weight_(random_matrix(embedding_size, embedding_size, seed + 3)),
+      feed_forward_in_(random_matrix(embedding_size, feed_forward_size, seed + 4)),
+      feed_forward_out_(random_matrix(feed_forward_size, embedding_size, seed + 5)) {
 
     if (embedding_size_ == 0 || num_heads_ == 0 ||
         embedding_size_ % num_heads_ != 0 ||
