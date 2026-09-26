@@ -13,6 +13,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $outputPath = Join-Path $repoRoot $Output
 $ollamaExe = "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
 $api = "http://localhost:11434/api/generate"
+$startedOllama = $false
+$ollamaProcess = $null
 
 if (!(Test-Path $ollamaExe)) {
     $command = Get-Command ollama.exe -ErrorAction SilentlyContinue
@@ -31,7 +33,8 @@ try {
     $tags = Get-OllamaTags
 } catch {
     Write-Host "Ollama daemon is not running. Starting it..."
-    Start-Process -FilePath $ollamaExe -ArgumentList "serve" -WindowStyle Hidden
+    $ollamaProcess = Start-Process -FilePath $ollamaExe -ArgumentList "serve" -WindowStyle Hidden -PassThru
+    $startedOllama = $true
 
     $connected = $false
 
@@ -96,7 +99,7 @@ $conversation
             prompt = $prompt
             stream = $false
             think = $false
-            keep_alive = "0"
+            keep_alive = "5m"
             options = @{
                 temperature = 0.7
             }
@@ -149,5 +152,10 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Unloading Ollama model..."
 & $ollamaExe stop $Model | Out-Null
 
+if ($startedOllama -and $ollamaProcess) {
+    Stop-Process -Id $ollamaProcess.Id -Force -ErrorAction SilentlyContinue
+    Write-Host "Stopped the Ollama daemon started by ULTRON."
+}
+
 Write-Host "Done. ULTRON now has a local Ollama-distilled training corpus."
-Write-Host "Ollama was used only through localhost and each generation requested keep_alive=0."
+Write-Host "Ollama was used only through localhost and is unloaded after the bootstrap."
