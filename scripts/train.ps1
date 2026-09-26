@@ -3,7 +3,8 @@ param(
     [int]$Epochs = 5,
     [double]$LearningRate = 0.003,
     [string]$Checkpoint = "models/ultron.bin",
-    [switch]$ExternalCorpus
+    [switch]$ExternalCorpus,
+    [switch]$Fresh
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,4 +22,28 @@ if ($ExternalCorpus) {
 if (!(Test-Path $exe)) { $exe = "build/ultron.exe" }
 if (!(Test-Path $exe)) { throw "ULTRON executable not found. Run scripts/build.ps1 first." }
 
-& $exe --train $Data --epochs $Epochs --lr $LearningRate --save $Checkpoint
+$arguments = @(
+    "--train", $Data,
+    "--epochs", $Epochs,
+    "--lr", $LearningRate,
+    "--save", $Checkpoint
+)
+
+$checkpointPath = Join-Path (Split-Path -Parent $PSScriptRoot) $Checkpoint
+
+if ((Test-Path $checkpointPath) -and !$Fresh) {
+    Write-Host "Resuming from checkpoint: $Checkpoint"
+    $arguments += @("--load", $Checkpoint)
+} elseif ($Fresh) {
+    Write-Host "Starting a fresh model."
+} else {
+    Write-Host "No existing checkpoint found; starting a fresh model."
+}
+
+& $exe @arguments
+
+if ($LASTEXITCODE -ne 0) {
+    throw "ULTRON training failed with exit code $LASTEXITCODE."
+}
+
+Write-Host "Training run finished successfully."
