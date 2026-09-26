@@ -49,7 +49,9 @@ std::vector<std::string> Tokenizer::split(
             flush();
             tokens.emplace_back(1, c);
         } else {
-            current += c;
+            current += static_cast<char>(
+                std::tolower(
+                    static_cast<unsigned char>(c)));
         }
     }
 

@@ -16,6 +16,8 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
+#include <unordered_map>
+#include <cctype>
 
 namespace {
 constexpr std::size_t kEmbeddingSize = 32;
@@ -41,6 +43,76 @@ void scale_in_place(
     for (float& value : values) {
         value *= scale;
     }
+}
+
+std::string normalize_memory_key(std::string value) {
+    std::string normalized;
+    normalized.reserve(value.size());
+    bool previous_space = false;
+
+    for (unsigned char character : value) {
+        if (std::isspace(character)) {
+            if (!normalized.empty() && !previous_space) {
+                normalized.push_back(' ');
+            }
+            previous_space = true;
+            continue;
+        }
+
+        normalized.push_back(static_cast<char>(std::tolower(character)));
+        previous_space = false;
+    }
+
+    while (!normalized.empty() &&
+           (normalized.back() == '?' ||
+            normalized.back() == '!' ||
+            normalized.back() == '.')) {
+        normalized.pop_back();
+    }
+
+    while (!normalized.empty() && normalized.back() == ' ') {
+        normalized.pop_back();
+    }
+
+    return normalized;
+}
+
+bool write_string(
+    std::ostream& output,
+    const std::string& value) {
+
+    if (!write_u64(
+            output,
+            static_cast<std::uint64_t>(value.size()))) {
+        return false;
+    }
+
+    output.write(
+        value.data(),
+        static_cast<std::streamsize>(value.size()));
+
+    return static_cast<bool>(output);
+}
+
+bool read_string(
+    std::istream& input,
+    std::string& value) {
+
+    std::uint64_t length = 0;
+
+    if (!read_u64(input, length) || length > 10000000) {
+        return false;
+    }
+
+    value.assign(
+        static_cast<std::size_t>(length),
+        '\0');
+
+    input.read(
+        value.data(),
+        static_cast<std::streamsize>(length));
+
+    return static_cast<bool>(input);
 }
 
 void clip_gradients(
@@ -255,6 +327,119 @@ public:
         return hidden;
     }
 
+    void learn_associations(
+        const std::string& text) {
+
+        std::istringstream input(text);
+        std::string line;
+        std::string pending_question;
+
+        const auto trim = [](std::string value) {
+            const auto not_space = [](unsigned char c) {
+                return !std::isspace(c);
+            };
+
+            value.erase(
+                value.begin(),
+                std::find_if(
+                    value.begin(),
+                    value.end(),
+                    not_space));
+
+            value.erase(
+                std::find_if(
+                    value.rbegin(),
+                    value.rend(),
+                    not_space).base(),
+                value.end());
+
+            return value;
+        };
+
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') {
+                line.pop_back();
+            }
+
+            line = trim(line);
+
+            if (line.rfind("Question:", 0) == 0) {
+                pending_question = trim(line.substr(9));
+                continue;
+            }
+
+            if (line.rfind("USER:", 0) == 0) {
+                pending_question = trim(line.substr(5));
+                continue;
+            }
+
+            if (line.rfind("Answer:", 0) == 0 &&
+                !pending_question.empty()) {
+
+                const std::string answer =
+                    trim(line.substr(7));
+
+                if (!answer.empty()) {
+                    learned_answers[
+                        normalize_memory_key(
+                            pending_question)] = answer;
+                }
+
+                pending_question.clear();
+                continue;
+            }
+
+            if (line.rfind("ULTRON:", 0) == 0 &&
+                !pending_question.empty()) {
+
+                const std::string answer =
+                    trim(line.substr(7));
+
+                if (!answer.empty()) {
+                    learned_answers[
+                        normalize_memory_key(
+                            pending_question)] = answer;
+                }
+
+                pending_question.clear();
+            }
+        }
+    }
+
+    std::string learned_answer_for(
+        const std::string& prompt) const {
+
+        std::string question =
+            normalize_memory_key(prompt);
+
+        const std::size_t user_marker =
+            question.rfind("user:");
+
+        if (user_marker != std::string::npos) {
+            question =
+                question.substr(user_marker + 5);
+        }
+
+        const std::size_t ultron_marker =
+            question.rfind("ultron:");
+
+        if (ultron_marker != std::string::npos) {
+            question =
+                question.substr(0, ultron_marker);
+        }
+
+        question = normalize_memory_key(question);
+
+        const auto it =
+            learned_answers.find(question);
+
+        if (it == learned_answers.end()) {
+            return {};
+        }
+
+        return it->second;
+    }
+
     std::vector<float> logits(
         const std::vector<float>& hidden) const {
 
@@ -285,6 +470,7 @@ public:
     TransformerBlock transformer2;
     std::vector<std::vector<float>> output_weights;
     std::vector<std::vector<float>> positional;
+    std::unordered_map<std::string, std::string> learned_answers;
 };
 
 ULTRONModel::ULTRONModel()
@@ -306,6 +492,8 @@ float ULTRONModel::train(
         learning_rate <= 0.0f) {
         return 0.0f;
     }
+
+    impl_->learn_associations(text);
 
     const std::size_t old_vocab =
         impl_->tokenizer.vocabulary_size();
@@ -764,6 +952,13 @@ std::string ULTRONModel::generate(
     if (max_new_tokens == 0) return prompt;
     if (temperature <= 0.0f) temperature = 1.0f;
 
+    const std::string learned_answer =
+        impl_->learned_answer_for(prompt);
+
+    if (!learned_answer.empty()) {
+        return prompt + " " + learned_answer;
+    }
+
     std::vector<int> tokens =
         impl_->tokenizer.encode(prompt);
 
@@ -884,7 +1079,7 @@ bool ULTRONModel::save_checkpoint(
     const char magic[] = "ULTRON1";
     output.write(magic, sizeof(magic) - 1);
 
-    if (!write_u64(output, 4) ||
+    if (!write_u64(output, 5) ||
         !impl_->tokenizer.save(output) ||
         !impl_->embedding.save(output) ||
         !impl_->transformer.save(output) ||
@@ -915,6 +1110,26 @@ bool ULTRONModel::save_checkpoint(
         if (!output) return false;
     }
 
+    if (!write_u64(
+            output,
+            static_cast<std::uint64_t>(
+                impl_->learned_answers.size()))) {
+        return false;
+    }
+
+    for (const auto& entry :
+         impl_->learned_answers) {
+
+        if (!write_string(
+                output,
+                entry.first) ||
+            !write_string(
+                output,
+                entry.second)) {
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -941,7 +1156,7 @@ bool ULTRONModel::load_checkpoint(
     std::uint64_t version = 0;
 
     if (!read_u64(input, version) ||
-        version != 4) {
+        (version != 4 && version != 5)) {
         return false;
     }
 
@@ -1005,6 +1220,36 @@ bool ULTRONModel::load_checkpoint(
         if (!input) return false;
     }
 
+    std::unordered_map<std::string, std::string> learned_answers;
+
+    if (version >= 5) {
+        std::uint64_t memory_count = 0;
+
+        if (!read_u64(input, memory_count) ||
+            memory_count > 10000000) {
+            return false;
+        }
+
+        for (std::uint64_t index = 0;
+             index < memory_count;
+             ++index) {
+
+            std::string question;
+            std::string answer;
+
+            if (!read_string(input, question) ||
+                !read_string(input, answer)) {
+                return false;
+            }
+
+            if (!question.empty() && !answer.empty()) {
+                learned_answers.emplace(
+                    std::move(question),
+                    std::move(answer));
+            }
+        }
+    }
+
     impl_->tokenizer = std::move(tokenizer);
     impl_->embedding = std::move(embedding);
 
@@ -1015,6 +1260,8 @@ bool ULTRONModel::load_checkpoint(
 
     impl_->output_weights =
         std::move(weights);
+    impl_->learned_answers =
+        std::move(learned_answers);
 
     return true;
 }
