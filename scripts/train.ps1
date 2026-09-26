@@ -88,11 +88,28 @@ if ((Test-Path $checkpointPath) -and !$Fresh) {
     Write-Host "No existing checkpoint found; starting a fresh model."
 }
 
+Write-Host ""
+Write-Host "============================================================"
+Write-Host " ULTRON TRAINING STARTED"
+Write-Host " Epochs: $Epochs | Learning rate: $LearningRate"
+Write-Host " Checkpoint: $Checkpoint"
+Write-Host " Watch for [train] messages below."
+Write-Host "============================================================"
+Write-Host ""
+
+$trainingStart = Get-Date
 & $exe @arguments
+$trainingEnd = Get-Date
 
 if ($LASTEXITCODE -ne 0) {
     throw "ULTRON training failed with exit code $LASTEXITCODE."
 }
+
+$trainingDuration = $trainingEnd - $trainingStart
+Write-Host ""
+Write-Host ("ULTRON training process finished in {0:hh\\:mm\\:ss}" -f $trainingDuration)
+Write-Host "Now checking the saved checkpoint..."
+Write-Host ""
 
 $evaluationArgs = @(
     "--load", $Checkpoint,
