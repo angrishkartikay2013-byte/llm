@@ -1,8 +1,9 @@
 param(
     [string]$Data = "data/train.txt",
     [int]$Epochs = 5,
-    [double]$LearningRate = 0.003,
+    [double]$LearningRate = 0.001,
     [string]$Checkpoint = "models/ultron_bpe.bin",
+    [int]$SaveEvery = 10,
     [switch]$ExternalCorpus,
     [switch]$Fresh
 )
@@ -26,7 +27,8 @@ $arguments = @(
     "--train", $Data,
     "--epochs", $Epochs,
     "--lr", $LearningRate,
-    "--save", $Checkpoint
+    "--save", $Checkpoint,
+    "--save-every", $SaveEvery
 )
 
 $checkpointPath = Join-Path (Split-Path -Parent $PSScriptRoot) $Checkpoint
