@@ -95,8 +95,7 @@ int run_ultron_smoke_tests() {
     assert(!generated.empty());
 
     model.train(
-        "Question: what is the test answer?
-Answer: learned memory works.",
+        "Question: what is the test answer?\nAnswer: learned memory works.",
         2,
         0.001f);
 
