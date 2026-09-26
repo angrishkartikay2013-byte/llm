@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <iosfwd>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 class Tokenizer {
@@ -20,11 +22,28 @@ public:
     bool load(std::istream& input);
 
 private:
-    static std::vector<std::string> split(
+    using Merge = std::pair<int, int>;
+
+    static constexpr std::uint64_t kFormatMagic =
+        0x554c54524f4e4252ULL; // "ULTRONBR"
+    static constexpr std::uint64_t kFormatVersion = 2;
+    static constexpr std::size_t kByteVocabularySize = 256;
+    static constexpr std::size_t kMaxMerges = 512;
+
+    static std::vector<std::string> legacy_split(
         const std::string& text,
         bool preserve_layout);
 
+    void initialize_bpe_base();
+    void learn_bpe(const std::string& text);
+    void apply_merges(std::vector<int>& tokens) const;
+
     std::unordered_map<std::string, int> token_to_id_;
     std::vector<std::string> id_to_token_;
-    bool preserve_layout_ = true;
+    std::vector<Merge> merges_;
+
+    // New checkpoints use byte-level BPE. Legacy checkpoints keep the old
+    // word-tokenizer mode so they remain readable.
+    bool bpe_mode_ = true;
+    bool legacy_preserve_layout_ = true;
 };
