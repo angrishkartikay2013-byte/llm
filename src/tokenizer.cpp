@@ -131,13 +131,19 @@ std::vector<std::string> Tokenizer::split_bpe_units(
         }
     };
 
+    const auto is_ascii_word =
+        [](unsigned char byte) {
+            return
+                (byte >= 'A' && byte <= 'Z') ||
+                (byte >= 'a' && byte <= 'z') ||
+                (byte >= '0' && byte <= '9') ||
+                byte == '_';
+        };
+
     for (std::size_t i = 0; i < text.size();) {
         const unsigned char byte =
             static_cast<unsigned char>(text[i]);
 
-        // Keep line breaks and horizontal whitespace as explicit boundaries.
-        // This teaches the model where spaces and new lines belong without
-        // allowing a merge such as "word," or "word next".
         if (byte == '\n') {
             flush();
             units.emplace_back("\n");
@@ -165,13 +171,7 @@ std::vector<std::string> Tokenizer::split_bpe_units(
             continue;
         }
 
-        const bool ascii_word =
-            (byte >= 'A' && byte <= 'Z') ||
-            (byte >= 'a' && byte <= 'z') ||
-            (byte >= '0' && byte <= '9') ||
-            byte == '_';
-
-        if (ascii_word) {
+        if (is_ascii_word(byte)) {
             flush();
             current.push_back(static_cast<char>(byte));
             ++i;
@@ -180,16 +180,25 @@ std::vector<std::string> Tokenizer::split_bpe_units(
                 const unsigned char next =
                     static_cast<unsigned char>(text[i]);
 
-                const bool next_word =
-                    (next >= 'A' && next <= 'Z') ||
-                    (next >= 'a' && next <= 'z') ||
-                    (next >= '0' && next <= '9') ||
-                    next == '_';
+                if (is_ascii_word(next)) {
+                    current.push_back(static_cast<char>(next));
+                    ++i;
+                    continue;
+                }
 
-                if (!next_word) break;
+                // Keep apostrophes and hyphens inside a word only when
+                // another word character follows them.
+                if ((next == '\'' || next == '-') &&
+                    i + 1 < text.size() &&
+                    is_ascii_word(
+                        static_cast<unsigned char>(
+                            text[i + 1]))) {
+                    current.push_back(static_cast<char>(next));
+                    ++i;
+                    continue;
+                }
 
-                current.push_back(static_cast<char>(next));
-                ++i;
+                break;
             }
 
             units.push_back(std::move(current));
@@ -197,33 +206,8 @@ std::vector<std::string> Tokenizer::split_bpe_units(
             continue;
         }
 
-        // Keep apostrophes and hyphens inside words so contractions and
-        // compounds can learn useful subwords without crossing word edges.
-        if (byte == '\'' || byte == '-') {
-            if (!current.empty() &&
-                i + 1 < text.size()) {
-                const unsigned char next =
-                    static_cast<unsigned char>(text[i + 1]);
-
-                const bool next_word =
-                    (next >= 'A' && next <= 'Z') ||
-                    (next >= 'a' && next <= 'z') ||
-                    (next >= '0' && next <= '9') ||
-                    next == '_';
-
-                if (next_word) {
-                    current.push_back(static_cast<char>(byte));
-                    ++i;
-                    continue;
-                }
-            }
-        }
-
         flush();
 
-        // ASCII punctuation and symbols each form their own boundary.
-        // Non-ASCII UTF-8 bytes are grouped into a unit so common encoded
-        // characters can still participate in BPE.
         if (byte >= 0x80) {
             std::string utf8_bytes;
             utf8_bytes.push_back(static_cast<char>(byte));
@@ -232,7 +216,9 @@ std::vector<std::string> Tokenizer::split_bpe_units(
             while (i < text.size()) {
                 const unsigned char next =
                     static_cast<unsigned char>(text[i]);
+
                 if (next < 0x80) break;
+
                 utf8_bytes.push_back(static_cast<char>(next));
                 ++i;
             }
@@ -247,124 +233,6 @@ std::vector<std::string> Tokenizer::split_bpe_units(
 
     flush();
     return units;
-}
-
-std::vector<std::string> Tokenizer::legacy_split(
-    const std::string& text,
-    bool preserve_layout) {
-
-    std::vector<std::string> tokens;
-    std::string current;
-    std::string pending_whitespace;
-
-    const auto flush_word = [&]() {
-        if (current.empty()) {
-            return;
-        }
-
-        std::string token;
-
-        if (preserve_layout) {
-            token = pending_whitespace;
-        }
-
-        for (const char c : current) {
-            token += static_cast<char>(
-                std::tolower(
-                    static_cast<unsigned char>(c)));
-        }
-
-        tokens.push_back(std::move(token));
-        current.clear();
-        pending_whitespace.clear();
-    };
-
-    for (std::size_t i = 0;
-         i < text.size();
-         ++i) {
-
-        const char c = text[i];
-
-        if (c == '\r' ||
-            c == '\n' ||
-            c == '\t' ||
-            c == ' ') {
-
-            flush_word();
-
-            if (!preserve_layout) {
-                continue;
-            }
-
-            if (c == '\r') {
-                if (i + 1 < text.size() &&
-                    text[i + 1] == '\n') {
-                    continue;
-                }
-
-                if (pending_whitespace.empty() ||
-                    pending_whitespace.back() != '\n') {
-                    pending_whitespace.push_back('\n');
-                }
-            } else if (c == '\n') {
-                if (pending_whitespace.empty() ||
-                    pending_whitespace.back() != '\n') {
-                    pending_whitespace.push_back('\n');
-                }
-            } else {
-                if (pending_whitespace.empty() ||
-                    (pending_whitespace.back() != ' ' &&
-                     pending_whitespace.back() != '\n')) {
-                    pending_whitespace.push_back(' ');
-                }
-            }
-
-            continue;
-        }
-
-        const bool apostrophe_inside =
-            c == '\'' &&
-            i > 0 &&
-            i + 1 < text.size() &&
-            is_legacy_word_character(text[i - 1]) &&
-            is_legacy_word_character(text[i + 1]);
-
-        const bool hyphen_inside =
-            c == '-' &&
-            i > 0 &&
-            i + 1 < text.size() &&
-            is_legacy_word_character(text[i - 1]) &&
-            is_legacy_word_character(text[i + 1]);
-
-        if (is_legacy_punctuation(c) &&
-            !apostrophe_inside &&
-            !hyphen_inside) {
-
-            flush_word();
-
-            std::string punctuation;
-
-            const bool keep_space_before =
-                preserve_layout &&
-                !pending_whitespace.empty() &&
-                (c == '(' || c == '[' || c == '{' ||
-                 c == '"' || c == '\'');
-
-            if (keep_space_before) {
-                punctuation = pending_whitespace;
-            }
-
-            punctuation += c;
-            tokens.push_back(std::move(punctuation));
-            pending_whitespace.clear();
-            continue;
-        }
-
-        current += c;
-    }
-
-    flush_word();
-    return tokens;
 }
 
 void Tokenizer::learn_bpe(
