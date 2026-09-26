@@ -575,12 +575,15 @@ float ULTRONModel::train(
                      dimension < kEmbeddingSize;
                      ++dimension) {
 
+                    // grad_states already carries the per-window
+                    // inverse-sample normalization through grad_hidden.
+                    // Applying inverse_samples here again incorrectly
+                    // shrank embedding updates by another factor.
                     embedding_gradients[
                         token_id * kEmbeddingSize +
                         dimension] +=
                         grad_states[
-                            local_position][dimension] *
-                        inverse_samples;
+                            local_position][dimension];
                 }
             }
 
