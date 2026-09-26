@@ -26,7 +26,27 @@ constexpr std::size_t kHeads = 4;
 constexpr std::size_t kFeedForwardSize = 128;
 constexpr std::size_t kTransformerLayers = 2;
 constexpr std::size_t kMaxSequenceLength = 256;
-constexpr std::size_t kTrainingSequenceLength = 128;
+constexpr std::size_t kDefaultTrainingSequenceLength = 128;
+
+struct TrainingSpeed {
+    std::size_t sequence_length = 128;
+    std::size_t sample_stride = 1;
+};
+
+TrainingSpeed training_speed(std::size_t speed) {
+    switch (std::clamp(speed, std::size_t(1), std::size_t(10))) {
+        case 1: return {128, 1};
+        case 2: return {96, 1};
+        case 3: return {80, 1};
+        case 4: return {64, 1};
+        case 5: return {48, 1};
+        case 6: return {32, 1};
+        case 7: return {32, 2};
+        case 8: return {24, 2};
+        case 9: return {16, 3};
+        default: return {12, 4};
+    }
+}
 
 bool write_u64(std::ostream& output, std::uint64_t value) {
     output.write(reinterpret_cast<const char*>(&value), sizeof(value));
@@ -506,7 +526,8 @@ float ULTRONModel::train(
     float learning_rate,
     const std::function<void(
         std::size_t,
-        float)>& progress) {
+        float)>& progress,
+    std::size_t speed) {
 
     if (text.empty() ||
         epochs == 0 ||
@@ -602,12 +623,26 @@ float ULTRONModel::train(
 
     float last_epoch_loss = 0.0f;
 
+    const TrainingSpeed speed_config =
+        training_speed(speed);
+
+    std::cout
+        << "[train] speed "
+        << std::clamp(speed, std::size_t(1), std::size_t(10))
+        << "/10 | context "
+        << speed_config.sequence_length
+        << " | sample stride "
+        << speed_config.sample_stride
+        << " | inference context remains "
+        << kMaxSequenceLength
+        << '\n';
+
     // Walk across the complete corpus instead of silently training only on
     // its final context window. Keep a one-token overlap so next-token
     // examples at window boundaries are still represented.
     const std::size_t window_step =
-        kTrainingSequenceLength > 1
-            ? kTrainingSequenceLength - 1
+        speed_config.sequence_length > 1
+            ? speed_config.sequence_length - 1
             : 1;
 
     for (std::size_t epoch = 0;
@@ -644,7 +679,7 @@ float ULTRONModel::train(
             const std::size_t window_end =
                 std::min(
                     tokens.size(),
-                    window_start + kTrainingSequenceLength);
+                    window_start + speed_config.sequence_length);
 
             const std::size_t window_size =
                 window_end - window_start;
@@ -748,9 +783,9 @@ float ULTRONModel::train(
                         impl_->output_weights.size(),
                         0.0f);
 
-                    for (std::size_t position = begin;
+                            for (std::size_t position = begin;
                          position < end;
-                         ++position) {
+                         position += speed_config.sample_stride) {
 
                         const auto& hidden =
                             hidden_states[position];
