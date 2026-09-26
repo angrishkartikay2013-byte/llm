@@ -66,20 +66,6 @@ std::uint64_t pair_key(
            static_cast<std::uint32_t>(right);
 }
 
-bool is_legacy_punctuation(char c) {
-    return c == '.' || c == ',' || c == '!' || c == '?' ||
-           c == ':' || c == ';' || c == '(' || c == ')' ||
-           c == '[' || c == ']' || c == '{' || c == '}' ||
-           c == '"' || c == '\'' || c == '-' || c == '/' ||
-           c == '\\' || c == '+' || c == '=' || c == '*' ||
-           c == '&' || c == '%' || c == '#' || c == '@';
-}
-
-bool is_legacy_word_character(char c) {
-    return std::isalnum(
-               static_cast<unsigned char>(c)) != 0 ||
-           c == '_';
-}
 }
 
 Tokenizer::Tokenizer() {
