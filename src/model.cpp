@@ -585,9 +585,10 @@ bool ULTRONModel::save_checkpoint(
     const char magic[] = "ULTRON1";
     output.write(magic, sizeof(magic) - 1);
 
-    if (!write_u64(output, 1) ||
+    if (!write_u64(output, 2) ||
         !impl_->tokenizer.save(output) ||
-        !impl_->embedding.save(output)) {
+        !impl_->embedding.save(output) ||
+        !impl_->transformer.save(output)) {
         return false;
     }
 
@@ -640,7 +641,7 @@ bool ULTRONModel::load_checkpoint(
     std::uint64_t version = 0;
 
     if (!read_u64(input, version) ||
-        version != 1) {
+        (version != 1 && version != 2)) {
         return false;
     }
 
@@ -654,6 +655,16 @@ bool ULTRONModel::load_checkpoint(
         embedding.embedding_size() != kEmbeddingSize ||
         embedding.vocabulary_size() !=
             tokenizer.vocabulary_size()) {
+        return false;
+    }
+
+    TransformerBlock transformer(
+        kEmbeddingSize,
+        kHeads,
+        kFeedForwardSize);
+
+    if (version >= 2 &&
+        !transformer.load(input)) {
         return false;
     }
 
@@ -684,6 +695,9 @@ bool ULTRONModel::load_checkpoint(
 
     impl_->tokenizer = std::move(tokenizer);
     impl_->embedding = std::move(embedding);
+    if (version >= 2) {
+        impl_->transformer = std::move(transformer);
+    }
     impl_->output_weights = std::move(weights);
 
     return true;
