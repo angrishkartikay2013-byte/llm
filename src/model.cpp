@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <fstream>
+#include <iostream>
 #include <limits>
 #include <random>
 #include <sstream>
@@ -290,12 +291,20 @@ float ULTRONModel::train(
             continue;
         }
 
-        for (std::size_t position = 0;
-             position + 1 < tokens.size();
-             ++position) {
+        const std::size_t context_start =
+            tokens.size() > kMaxSequenceLength
+                ? tokens.size() - kMaxSequenceLength
+                : 0;
+
+        for (std::size_t local_position = 0;
+             local_position + 1 < hidden_states.size();
+             ++local_position) {
+
+            const std::size_t position =
+                context_start + local_position;
 
             const auto& hidden =
-                hidden_states[position];
+                hidden_states[local_position];
 
             std::vector<float> current_logits(
                 impl_->output_weights.size(),
