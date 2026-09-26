@@ -6,6 +6,8 @@
 
 class TransformerBlock {
 public:
+    using Matrix = std::vector<std::vector<float>>;
+
     TransformerBlock(
         std::size_t embedding_size,
         std::size_t num_heads = 4,
@@ -23,8 +25,6 @@ public:
     bool load(std::istream& input);
 
 private:
-    using Matrix = std::vector<std::vector<float>>;
-
     std::size_t embedding_size_;
     std::size_t num_heads_;
     std::size_t head_size_;
