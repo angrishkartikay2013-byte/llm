@@ -76,3 +76,14 @@ Generation supports a clean inference mode that prevents generated responses fro
     .\\build\\ultron.exe --load models/ultron.bin --max-tokens 20 --no-online-learning
 
 Model checkpoints written by the current training path use checkpoint version 4 and include the learned tokenizer merges plus both Transformer blocks. Re-train a new checkpoint after pulling tokenizer or architecture changes rather than judging a newly built binary with an older checkpoint.
+
+
+## Live Ollama teacher
+
+Run:
+
+    .\scripts\ollama_teacher.ps1 -Model "qwen3:8b" -Rounds 5
+
+Each round asks Ollama to generate a new lesson at runtime, shows the current ULTRON answer, feeds the teacher's question and answer into ULTRON's existing `teach` path, and then asks ULTRON the same question again. The accumulating student checkpoint is saved as `models/ultron_live.bin`.
+
+No factual answers are hard-coded. Ollama is used as a temporary teacher through its local API. The API supports non-streaming generation, JSON output, and `keep_alive` control. 
