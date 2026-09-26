@@ -181,3 +181,34 @@ The project is intentionally being built in stages:
 7. richer ULTRON assistant features around the LLM
 
 The project should be judged by reproducible training curves, evaluation metrics, and generation tests—not by the number of epochs alone.
+
+## Autonomous internet learning
+
+ULTRON can run a controlled autonomous learning loop on Windows without a pretrained-model wrapper.
+
+The controller downloads an English CC0 sentence corpus from Tatoeba over the internet, mixes a random replay sample from the seed corpus with a fresh internet batch, trains for one epoch, and periodically runs a basic-English generation gate. The replay mix is intentional: training only on sequential new batches could make this small model forget earlier language.
+
+Run it with:
+
+    .\scripts\autolearn.ps1 -SeedData data\train.txt -MaxRounds 100 -Speed 1
+
+For a fresh autonomous checkpoint:
+
+    .\scripts\autolearn.ps1 -SeedData data\train.txt -Fresh -MaxRounds 100 -Speed 1
+
+Use your own corpus as the seed by passing its path with `-SeedData`, for example:
+
+    .\scripts\autolearn.ps1 -SeedData data\ultron_training_corpus.txt -Fresh
+
+Autonomous controls while a training batch is running:
+
+- `S` saves a safety copy at the next completed checkpoint.
+- `T` queues an immediate basic-English test after the current batch.
+- `P` pauses or resumes after the current batch.
+- `X` stops after the current batch and saves a safe checkpoint.
+
+The autonomous learner stops automatically when its basic-English gate reaches the configured threshold for the configured number of consecutive tests. The default is 75/100 for 3 consecutive passing tests. The gate checks eight prompts for readable output, reasonable length, alphabetic content, control-token leakage, repeated characters, repeated 3-grams, and topic-keyword hits on factual prompts.
+
+This gate is deliberately conservative about its wording: it is a measurable baseline for basic English generation, not proof that ULTRON is intelligent or generally capable. The program never uses ULTRON's own generated answers as training data in this mode.
+
+The default internet source is Tatoeba's CC0 English export. Downloaded corpora and round files remain under `data/external/`, which is ignored by Git. Model checkpoints remain under `models/`, which is also ignored by Git.
