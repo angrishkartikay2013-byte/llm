@@ -172,7 +172,7 @@ bool starts_with(
 
 int main(int argc, char** argv) {
     try {
-        const Options options =
+        Options options =
             parse(argc, argv);
 
         if (options.self_test) {
