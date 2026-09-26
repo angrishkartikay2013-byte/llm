@@ -1023,6 +1023,7 @@ std::string ULTRONModel::generate(
 
     std::mt19937 generator(seed);
     std::ostringstream result;
+    std::string generated_text;
     result << prompt;
 
     for (std::size_t generated = 0;
@@ -1121,6 +1122,15 @@ std::string ULTRONModel::generate(
                 {static_cast<int>(selected)});
 
         result << piece;
+        generated_text += piece;
+
+        // Stop when the model starts writing the next dialogue turn.
+        if (generated_text.find("\nUSER:") != std::string::npos ||
+            generated_text.find("\nQuestion:") != std::string::npos ||
+            generated_text.find("\nAnswer:") != std::string::npos ||
+            generated_text.find("\nULTRON:") != std::string::npos) {
+            break;
+        }
     }
 
     return result.str();
