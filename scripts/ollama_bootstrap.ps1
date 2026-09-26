@@ -1,7 +1,7 @@
 param(
     [string]$Model = "qwen3:8b",
-    [int]$Batches = 3,
-    [int]$SentencesPerBatch = 80,
+    [int]$Batches = 1,
+    [int]$SentencesPerBatch = 30,
     [int]$Epochs = 1,
     [double]$LearningRate = 0.003,
     [string]$Output = "data/external/ollama_distill.txt"
@@ -23,10 +23,33 @@ if (!(Test-Path $ollamaExe)) {
     }
 }
 
+function Get-OllamaTags {
+    return Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -Method Get -TimeoutSec 10
+}
+
 try {
-    $tags = Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -Method Get -TimeoutSec 10
+    $tags = Get-OllamaTags
 } catch {
-    throw "Ollama is not reachable at localhost:11434. Start Ollama and run this script again."
+    Write-Host "Ollama daemon is not running. Starting it..."
+    Start-Process -FilePath $ollamaExe -ArgumentList "serve" -WindowStyle Hidden
+
+    $connected = $false
+
+    for ($attempt = 1; $attempt -le 20; $attempt++) {
+        Start-Sleep -Seconds 1
+
+        try {
+            $tags = Get-OllamaTags
+            $connected = $true
+            break
+        } catch {
+            # Keep waiting for the local daemon to start.
+        }
+    }
+
+    if (!$connected) {
+        throw "Ollama could not be started at localhost:11434."
+    }
 }
 
 $available = @($tags.models | ForEach-Object { $_.name })
