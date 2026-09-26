@@ -1331,19 +1331,24 @@ bool ULTRONModel::load_checkpoint(
     std::unique_ptr<AdamOptimizer> embedding_optimizer;
 
     if (version >= 6) {
+        struct LoadedOptimizer {
+            bool valid = false;
+            std::unique_ptr<AdamOptimizer> optimizer;
+        };
+
         const auto load_optimizer =
             [&](std::size_t parameter_count)
-                -> std::unique_ptr<AdamOptimizer> {
+                -> LoadedOptimizer {
 
                 std::uint64_t present = 0;
 
                 if (!read_u64(input, present) ||
                     present > 1) {
-                    return nullptr;
+                    return {};
                 }
 
                 if (present == 0) {
-                    return std::unique_ptr<AdamOptimizer>{};
+                    return {true, nullptr};
                 }
 
                 auto optimizer =
@@ -1352,38 +1357,46 @@ bool ULTRONModel::load_checkpoint(
                         0.001f);
 
                 if (!optimizer->load(input)) {
-                    return nullptr;
+                    return {};
                 }
 
-                return optimizer;
+                return {true, std::move(optimizer)};
             };
 
-        output_optimizer =
+        const auto loaded_output =
             load_optimizer(
                 weights.size() * kEmbeddingSize);
 
-        if (weights.empty() ||
-            !output_optimizer) {
-            return false;
-        }
-
-        transformer_optimizer =
+        const auto loaded_transformer =
             load_optimizer(
                 transformer.parameter_count());
 
-        transformer2_optimizer =
+        const auto loaded_transformer2 =
             load_optimizer(
                 transformer2.parameter_count());
 
-        embedding_optimizer =
+        const auto loaded_embedding =
             load_optimizer(
                 embedding.parameter_count());
 
-        if (!transformer_optimizer ||
-            !transformer2_optimizer ||
-            !embedding_optimizer) {
+        if (!loaded_output.valid ||
+            !loaded_transformer.valid ||
+            !loaded_transformer2.valid ||
+            !loaded_embedding.valid) {
             return false;
         }
+
+        output_optimizer =
+            std::move(loaded_output.optimizer);
+
+        transformer_optimizer =
+            std::move(loaded_transformer.optimizer);
+
+        transformer2_optimizer =
+            std::move(loaded_transformer2.optimizer);
+
+        embedding_optimizer =
+            std::move(loaded_embedding.optimizer);
     }
 
     impl_->tokenizer = std::move(tokenizer);
