@@ -1222,6 +1222,225 @@ std::string ULTRONModel::generate(
     std::string generated_text;
     result << prompt;
 
+    // Small-from-scratch models can assign surprising probability to
+    // punctuation, control bytes, and repeated token loops. Keep the model's
+    // logits as the source of truth, but make decoding conservative enough to
+    // prefer readable text.
+    constexpr float kInvalidLogit = -1.0e30f;
+    constexpr float kRepetitionPenalty = 1.18f;
+    constexpr std::size_t kNoRepeatNgram = 3;
+    constexpr std::size_t kRecentTokenWindow = 64;
+    constexpr std::size_t kMaximumWordRun = 18;
+    constexpr std::size_t kPickyTopKCap = 6;
+
+    const auto is_word_character =
+        [](unsigned char character) {
+            return
+                (character >= 'A' && character <= 'Z') ||
+                (character >= 'a' && character <= 'z') ||
+                (character >= '0' && character <= '9') ||
+                character == '_';
+        };
+
+    const auto is_space_character =
+        [](unsigned char character) {
+            return
+                character == ' ' ||
+                character == '\\t' ||
+                character == '\\n' ||
+                character == '\\r';
+        };
+
+    const auto is_punctuation_character =
+        [](unsigned char character) {
+            switch (character) {
+                case '.':
+                case ',':
+                case '!':
+                case '?':
+                case ':':
+                case ';':
+                case '(':
+                case ')':
+                case '[':
+                case ']':
+                case '{':
+                case '}':
+                case '"':
+                case '\\'':
+                case '-':
+                case '/':
+                case '\\\\':
+                case '+':
+                case '=':
+                case '*':
+                case '&':
+                case '%':
+                case '#':
+                case '@':
+                    return true;
+                default:
+                    return false;
+            }
+        };
+
+    const auto is_printable_piece =
+        [&](const std::string& piece) {
+            if (piece.empty()) return false;
+
+            for (unsigned char character : piece) {
+                if (character < 32 &&
+                    !is_space_character(character)) {
+                    return false;
+                }
+
+                if (character == 127) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+    const auto is_whitespace_piece =
+        [&](const std::string& piece) {
+            if (piece.empty()) return false;
+
+            for (unsigned char character : piece) {
+                if (!is_space_character(character)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+    const auto is_punctuation_piece =
+        [&](const std::string& piece) {
+            if (piece.empty()) return false;
+
+            for (unsigned char character : piece) {
+                if (!is_punctuation_character(character)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+    const auto is_opening_piece =
+        [&](const std::string& piece) {
+            if (piece.empty()) return false;
+
+            for (unsigned char character : piece) {
+                if (character != '(' &&
+                    character != '[' &&
+                    character != '{' &&
+                    character != '"') {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+    const auto recent_word_length =
+        [&](const std::string& text) {
+            std::size_t length = 0;
+
+            for (std::size_t index = text.size();
+                 index > 0;) {
+                const unsigned char character =
+                    static_cast<unsigned char>(text[index - 1]);
+
+                if (!is_word_character(character)) {
+                    break;
+                }
+
+                ++length;
+                --index;
+            }
+
+            return length;
+        };
+
+    const auto punctuation_streak =
+        [&](const std::string& text) {
+            std::size_t count = 0;
+
+            for (std::size_t index = text.size();
+                 index > 0;) {
+                const unsigned char character =
+                    static_cast<unsigned char>(text[index - 1]);
+
+                if (!is_punctuation_character(character)) {
+                    break;
+                }
+
+                ++count;
+                --index;
+            }
+
+            return count;
+        };
+
+    const auto would_repeat_ngram =
+        [&](const std::vector<int>& sequence,
+            int candidate) {
+
+            if (kNoRepeatNgram < 2 ||
+                sequence.size() + 1 < kNoRepeatNgram) {
+                return false;
+            }
+
+            const std::size_t new_start =
+                sequence.size() + 1 - kNoRepeatNgram;
+
+            for (std::size_t index = 0;
+                 index + kNoRepeatNgram <= sequence.size();
+                 ++index) {
+
+                if (index >= new_start) {
+                    continue;
+                }
+
+                bool matches = true;
+
+                for (std::size_t offset = 0;
+                     offset + 1 < kNoRepeatNgram;
+                     ++offset) {
+
+                    if (sequence[index + offset] !=
+                        sequence[new_start + offset]) {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (matches &&
+                    sequence[index + kNoRepeatNgram - 1] ==
+                        candidate) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+    const auto creates_repeated_character_run =
+        [](const std::string& text) {
+
+            if (text.size() < 4) {
+                return false;
+            }
+
+            const char last = text.back();
+
+            return text[text.size() - 2] == last &&
+                   text[text.size() - 3] == last &&
+                   text[text.size() - 4] == last;
+        };
+
     for (std::size_t generated = 0;
          generated < max_new_tokens;
          ++generated) {
@@ -1241,52 +1460,229 @@ std::string ULTRONModel::generate(
         for (std::size_t i = 0;
              i < raw_logits.size();
              ++i) {
+
             scaled_logits[i] =
                 raw_logits[i] / temperature;
         }
 
-        constexpr float repetition_penalty = 1.15f;
+        const std::size_t current_word_length =
+            recent_word_length(generated_text);
 
-        for (const int previous_token : tokens) {
-            if (previous_token < 0) continue;
+        const std::size_t current_punctuation_streak =
+            punctuation_streak(generated_text);
 
-            const std::size_t token_id =
-                static_cast<std::size_t>(previous_token);
+        const unsigned char previous_character =
+            generated_text.empty()
+                ? 0
+                : static_cast<unsigned char>(
+                    generated_text.back());
 
-            if (token_id >= scaled_logits.size()) continue;
+        bool any_valid_candidate = false;
 
-            if (scaled_logits[token_id] >= 0.0f) {
-                scaled_logits[token_id] /=
-                    repetition_penalty;
-            } else {
-                scaled_logits[token_id] *=
-                    repetition_penalty;
+        for (std::size_t token_id = 0;
+             token_id < scaled_logits.size();
+             ++token_id) {
+
+            // Token 0 is <unk> in the BPE tokenizer and should never be
+            // selected by the normal generator.
+            if (token_id == 0) {
+                scaled_logits[token_id] = kInvalidLogit;
+                continue;
+            }
+
+            const std::string piece =
+                impl_->tokenizer.decode(
+                    {static_cast<int>(token_id)});
+
+            if (!is_printable_piece(piece)) {
+                scaled_logits[token_id] = kInvalidLogit;
+                continue;
+            }
+
+            float score = scaled_logits[token_id];
+
+            std::size_t occurrence_count = 0;
+            const std::size_t recent_begin =
+                tokens.size() > kRecentTokenWindow
+                    ? tokens.size() - kRecentTokenWindow
+                    : 0;
+
+            for (std::size_t index = recent_begin;
+                 index < tokens.size();
+                 ++index) {
+
+                if (tokens[index] ==
+                    static_cast<int>(token_id)) {
+                    ++occurrence_count;
+                }
+            }
+
+            for (std::size_t occurrence = 0;
+                 occurrence < occurrence_count;
+                 ++occurrence) {
+
+                if (score >= 0.0f) {
+                    score /= kRepetitionPenalty;
+                } else {
+                    score *= kRepetitionPenalty;
+                }
+            }
+
+            if (would_repeat_ngram(
+                    tokens,
+                    static_cast<int>(token_id))) {
+                scaled_logits[token_id] = kInvalidLogit;
+                continue;
+            }
+
+            const bool whitespace =
+                is_whitespace_piece(piece);
+
+            const bool punctuation =
+                is_punctuation_piece(piece);
+
+            const bool opening =
+                is_opening_piece(piece);
+
+            if (current_word_length >= kMaximumWordRun &&
+                !whitespace &&
+                !punctuation) {
+                scaled_logits[token_id] = kInvalidLogit;
+                continue;
+            }
+
+            if (previous_character != 0) {
+
+                if (is_word_character(previous_character)) {
+
+                    if (whitespace) {
+                        // Strongly prefer an actual word boundary.
+                        score += 0.55f;
+                    } else if (punctuation) {
+                        score += 0.12f;
+                    }
+
+                } else if (is_space_character(previous_character)) {
+
+                    if (whitespace) {
+                        // Avoid "  " and repeated blank padding.
+                        score -= 1.50f;
+                    } else if (punctuation && !opening) {
+                        // ", " and ". " are useful; " ,"/" ." are usually not.
+                        score -= 1.10f;
+                    } else if (is_word_character(
+                                   static_cast<unsigned char>(
+                                       piece.front()))) {
+                        score += 0.12f;
+                    }
+
+                } else if (is_punctuation_character(
+                               previous_character)) {
+
+                    if (punctuation) {
+                        score -= 1.45f;
+
+                        if (piece.size() == 1 &&
+                            piece.front() ==
+                                static_cast<char>(
+                                    previous_character)) {
+                            score -= 1.25f;
+                        }
+                    } else if (!whitespace) {
+                        // Sentence and clause punctuation normally gets a
+                        // separator before another word.
+                        score -= 0.85f;
+                    }
+                }
+            }
+
+            if (current_punctuation_streak >= 2 &&
+                punctuation) {
+                score -= 2.0f;
+            }
+
+            std::string candidate_text =
+                generated_text + piece;
+
+            if (creates_repeated_character_run(candidate_text)) {
+                score -= 1.75f;
+            }
+
+            // A repeated suffix is a cheap character-level safety net for
+            // loops that escape the token-level n-gram ban.
+            if (candidate_text.size() >= 12) {
+                for (std::size_t length = 3;
+                     length <= 6;
+                     ++length) {
+
+                    if (candidate_text.size() < length * 2) {
+                        continue;
+                    }
+
+                    const std::size_t first =
+                        candidate_text.size() - length * 2;
+                    const std::size_t second =
+                        candidate_text.size() - length;
+
+                    if (candidate_text.compare(
+                            first,
+                            length,
+                            candidate_text,
+                            second,
+                            length) == 0) {
+                        score -= 2.25f;
+                        break;
+                    }
+                }
+            }
+
+            scaled_logits[token_id] = score;
+            any_valid_candidate = true;
+        }
+
+        if (!any_valid_candidate) {
+            break;
+        }
+
+        std::vector<std::size_t> candidates;
+        candidates.reserve(
+            scaled_logits.size());
+
+        for (std::size_t token_id = 0;
+             token_id < scaled_logits.size();
+             ++token_id) {
+
+            if (scaled_logits[token_id] > kInvalidLogit * 0.5f) {
+                candidates.push_back(token_id);
             }
         }
 
-        std::vector<std::size_t> candidates(
-            scaled_logits.size());
+        if (candidates.empty()) break;
 
-        for (std::size_t i = 0;
-             i < candidates.size();
-             ++i) candidates[i] = i;
+        const std::size_t requested_top_k =
+            top_k == 0
+                ? kPickyTopKCap
+                : top_k;
 
-        if (top_k > 0 &&
-            top_k < candidates.size()) {
+        const std::size_t effective_top_k =
+            std::min<std::size_t>(
+                requested_top_k,
+                std::min<std::size_t>(
+                    kPickyTopKCap,
+                    candidates.size()));
 
-            std::partial_sort(
-                candidates.begin(),
-                candidates.begin() +
-                    static_cast<std::ptrdiff_t>(
-                        top_k),
-                candidates.end(),
-                [&](std::size_t a, std::size_t b) {
-                    return scaled_logits[a] >
-                           scaled_logits[b];
-                });
+        std::partial_sort(
+            candidates.begin(),
+            candidates.begin() +
+                static_cast<std::ptrdiff_t>(
+                    effective_top_k),
+            candidates.end(),
+            [&](std::size_t a, std::size_t b) {
+                return scaled_logits[a] >
+                       scaled_logits[b];
+            });
 
-            candidates.resize(top_k);
-        }
+        candidates.resize(effective_top_k);
 
         std::vector<float> candidate_logits;
         candidate_logits.reserve(
@@ -1294,6 +1690,7 @@ std::string ULTRONModel::generate(
 
         for (std::size_t candidate :
              candidates) {
+
             candidate_logits.push_back(
                 scaled_logits[candidate]);
         }
@@ -1321,19 +1718,29 @@ std::string ULTRONModel::generate(
         generated_text += piece;
 
         // Stop when the model starts writing the next dialogue turn.
-        if (generated_text.find("\nUSER:") != std::string::npos ||
-            generated_text.find("\nQuestion:") != std::string::npos ||
-            generated_text.find("\nAnswer:") != std::string::npos ||
-            generated_text.find("\nULTRON:") != std::string::npos) {
+        if (generated_text.find("\\nUSER:") != std::string::npos ||
+            generated_text.find("\\nQuestion:") != std::string::npos ||
+            generated_text.find("\\nAnswer:") != std::string::npos ||
+            generated_text.find("\\nULTRON:") != std::string::npos) {
+            break;
+        }
+
+        // Once we have a complete sentence, don't force the tiny model to
+        // keep rambling when it has no strong continuation.
+        if (generated_text.size() >= 2 &&
+            (generated_text.back() == '.' ||
+             generated_text.back() == '!' ||
+             generated_text.back() == '?') &&
+            generated_text.size() >= 16) {
             break;
         }
     }
 
     const std::vector<std::string> stop_markers = {
-        "\nUSER:",
-        "\nQuestion:",
-        "\nAnswer:",
-        "\nULTRON:"
+        "\\nUSER:",
+        "\\nQuestion:",
+        "\\nAnswer:",
+        "\\nULTRON:"
     };
 
     std::size_t cut = std::string::npos;
