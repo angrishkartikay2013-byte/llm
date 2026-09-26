@@ -61,8 +61,8 @@ ULTRON can temporarily use an installed local Ollama model to generate additiona
 
 Run:
 
-    .\scripts\ollama_bootstrap.ps1 -Model "qwen3:8b" -Batches 2 -SentencesPerBatch 60 -Epochs 1
+    .\scripts\ollama_bootstrap.ps1 -Model "qwen3:8b" -Epochs 1
 
-The script talks only to Ollama on `http://localhost:11434`, writes the generated corpus to `data/external/ollama_distill.txt`, trains ULTRON, saves `models/ultron.bin`, and unloads the Ollama model afterwards. Ollama's `keep_alive: 0` request option is used so generated calls do not keep the model loaded.
+The script talks only to Ollama on `http://localhost:11434`, writes the generated corpus to `data/external/ollama_distill.txt`, trains ULTRON, saves `models/ultron.bin`, and then unloads the model and stops the daemon if the script started it. The default bootstrap is deliberately small: one batch of 30 short sentences, suitable for a quick CPU experiment.
 
 This is knowledge distillation/data synthesis: Ollama is the temporary teacher, while ULTRON remains the standalone model after the bootstrap finishes.
