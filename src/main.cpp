@@ -28,6 +28,7 @@ struct Options {
     std::size_t save_every = 0;
     bool self_test = false;
     bool online_learning = false;
+    bool interactive = true;
 };
 
 std::string value_after(
@@ -90,6 +91,8 @@ Options parse(int argc, char** argv) {
             options.online_learning = true;
         } else if (argument == "--no-online-learning") {
             options.online_learning = false;
+        } else if (argument == "--non-interactive") {
+            options.interactive = false;
         } else if (
             argument == "--help" ||
             argument == "-h") {
@@ -103,7 +106,8 @@ Options parse(int argc, char** argv) {
                 << "--top-k K --seed N\n"
                 << "--save-every N\n"
                 << "--self-test\n"
-                << "--online-learning --no-online-learning\n";
+                << "--online-learning --no-online-learning\n"
+                << "--non-interactive\n";
 
             std::exit(0);
         } else {
@@ -261,6 +265,10 @@ int main(int argc, char** argv) {
                 << "Accuracy: "
                 << metrics.accuracy
                 << '\n';
+        }
+
+        if (!options.interactive) {
+            return 0;
         }
 
         std::cout
