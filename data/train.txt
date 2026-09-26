@@ -3,4 +3,177 @@ A language model learns patterns in text and predicts the next token.
 Transformers use attention to combine information from context.
 ULTRON processes context with embeddings, attention, normalization, and a feed forward network.
 Training changes model parameters so likely next tokens become more probable.
-This small corpus exists as a local smoke-training dataset.
+The model reads a sequence of tokens and predicts what token should come next.
+Words are represented internally as numeric token ids.
+Embeddings map token ids into vectors.
+Attention lets a token use information from earlier tokens.
+Causal attention prevents the model from looking at future tokens during prediction.
+The decoder style transformer predicts one continuation token at a time.
+A smaller temperature makes generation more deterministic.
+A larger temperature makes generation more varied.
+Top k sampling limits generation to the strongest candidate tokens.
+Cross entropy measures how surprised the model is by the correct next token.
+Perplexity is derived from average cross entropy.
+Lower training loss generally means the model fits its training text better.
+Evaluation measures how the trained model behaves on text.
+A training dataset should contain diverse examples.
+More varied sentences give the model more language patterns to learn.
+Simple questions can teach associations between questions and answers.
+Question: what is a language model
+Answer: a language model predicts tokens from context.
+Question: what is attention
+Answer: attention combines information from relevant positions in a sequence.
+Question: what is a transformer
+Answer: a transformer is a neural network architecture that uses attention.
+Question: what is an embedding
+Answer: an embedding represents a token as a learned vector.
+Question: what is training
+Answer: training changes parameters to reduce prediction error.
+Question: what is inference
+Answer: inference uses learned parameters to generate predictions.
+Question: what is a token
+Answer: a token is a unit used to represent text.
+Question: what is context
+Answer: context is the text available before the predicted token.
+Question: why does ULTRON need data
+Answer: data provides examples of language patterns.
+Question: can ULTRON generate text
+Answer: yes, ULTRON generates tokens one at a time.
+Question: can a model learn from mistakes
+Answer: gradient based training updates parameters using prediction errors.
+Question: why is the future masked
+Answer: causal masking prevents cheating by hiding future tokens.
+Hello ULTRON.
+Hello there.
+Hi ULTRON.
+How are you.
+I am learning from text.
+I am a small language model.
+I predict the next token.
+I use attention to process context.
+I use embeddings to represent tokens.
+I use a feed forward network after attention.
+I train with an optimizer.
+I evaluate with loss and accuracy.
+I can save a checkpoint.
+I can load a checkpoint.
+I run locally on the CPU.
+C++ is the language used for the core engine.
+The engine is designed for CPU friendly experiments.
+The program starts from a command line.
+The program also provides an interactive prompt.
+The user can type a prompt and the model generates a continuation.
+A model can improve when the training data is larger and more varied.
+A model can also improve when its parameters are updated correctly.
+Good training requires stable optimization.
+Gradient clipping can prevent unusually large updates.
+Shuffling training examples reduces ordering bias.
+A learning rate controls the size of parameter updates.
+Adam keeps moving averages of gradients.
+A checkpoint stores learned parameters for later inference.
+A tokenizer converts text into tokens.
+Punctuation can be represented as separate tokens.
+The vocabulary maps tokens to integer ids.
+Unknown text can map to an unknown token.
+The model uses positional information to distinguish token positions.
+Position zero comes before position one.
+Earlier tokens provide context for later tokens.
+The sentence begins with a subject.
+The sentence can contain a verb.
+The sentence can contain an object.
+Questions often end with a question mark.
+Statements often end with a period.
+Commands can start with a verb.
+A response can explain a question.
+A response can contain several sentences.
+Language contains repeated patterns.
+Context helps resolve which word is likely next.
+The same word can appear in different contexts.
+Training examples can contain names, numbers, facts, and descriptions.
+ULTRON is a project.
+The project is written in C++20.
+The repository contains source code.
+The source code contains headers and implementation files.
+The build system uses CMake.
+Tests are part of the project.
+The smoke test checks basic model behavior.
+A successful build produces the ULTRON executable.
+A successful test run means the smoke tests completed.
+The model should be reproducible when a fixed seed is used.
+Random sampling can create different continuations when the seed changes.
+A deterministic prompt can be useful for debugging.
+A smaller vocabulary can train faster.
+A larger vocabulary can represent more words.
+A larger model has more parameters.
+More parameters can increase capacity but also increase compute cost.
+CPU training is slower than GPU training.
+Small models are useful for learning how language models work.
+ULTRON is an educational from-scratch implementation.
+The goal is to understand every major part of a language model.
+The tokenizer processes raw text.
+The embedding layer converts ids into vectors.
+The transformer processes a sequence of vectors.
+The output projection converts a hidden state into vocabulary logits.
+Softmax converts logits into probabilities.
+Sampling selects a token from those probabilities.
+The selected token is appended to the context.
+Generation repeats this process.
+The next token depends on the current context.
+A long context can contain many previous tokens.
+A short context contains fewer previous tokens.
+The maximum sequence length limits the amount of context.
+Attention weights describe how strongly positions attend to earlier positions.
+Keys and queries interact to produce attention scores.
+Values carry information into the attention result.
+Multiple heads let the model use different attention subspaces.
+The feed forward layer transforms each position independently.
+Layer normalization helps stabilize activations.
+Residual connections help information flow through the network.
+GELU is a smooth activation function.
+The optimizer changes parameters after computing gradients.
+The loss gives a training signal.
+A good implementation should report useful metrics.
+Accuracy counts correct next token predictions.
+Perplexity summarizes predictive uncertainty.
+A validation set can measure generalization.
+A training set should not be the only text used for evaluation.
+Model quality depends on both architecture and data.
+Data quality matters as much as raw data size.
+Repeated low quality text can teach repetitive behavior.
+Clear examples can teach stronger associations.
+A language model does not automatically know facts that were never in its training data.
+The model only has the information encoded in its learned parameters and current context.
+A model can generate fluent looking text without understanding it deeply.
+Better training can improve consistency.
+Better tokenization can improve representation of rare words.
+Subword tokens can represent new words more efficiently than a pure word vocabulary.
+Byte level tokenization can represent arbitrary text.
+A modern tokenizer can use merges to build frequent subwords.
+BPE stands for byte pair encoding.
+Tokenization is part of model quality.
+A model can learn syntax from repeated examples.
+A model can learn simple factual associations from repeated examples.
+A model can learn common question answer patterns.
+A model can learn the style of a dataset.
+Longer examples provide longer dependencies.
+Short examples are cheaper to train.
+A balanced dataset can mix short and long examples.
+ULTRON should learn language patterns rather than memorizing one sentence.
+A useful dataset contains many related but distinct sentences.
+The model can be trained for multiple epochs.
+Each epoch passes over the training data.
+More epochs can improve fit but can also overfit a small dataset.
+Learning rate and epoch count should be tuned together.
+The CPU can train small experiments locally.
+The first successful generated word was hi.
+That first generation proved that the inference pipeline was working.
+The next goal is to make the model learn useful language behavior.
+ULTRON learns from data.
+ULTRON predicts the next token.
+ULTRON uses context.
+ULTRON uses attention.
+ULTRON uses embeddings.
+ULTRON uses a transformer.
+ULTRON uses an optimizer.
+ULTRON can generate text.
+ULTRON is built from scratch.
