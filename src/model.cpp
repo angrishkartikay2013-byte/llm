@@ -1270,7 +1270,7 @@ std::string ULTRONModel::generate(
                 case '\'' :
                 case '-':
                 case '/':
-                case '\'' :
+                case '\\':
                 case '+':
                 case '=':
                 case '*':
