@@ -263,6 +263,24 @@ int run_ultron_smoke_tests() {
         2,
         0.001f);
 
+    // Speed 10 must remain finite and usable; it changes only the training
+    // compute budget, not the model architecture or checkpoint format.
+    ULTRONModel fast_mode;
+    fast_mode.train(
+        corpus,
+        1,
+        0.001f,
+        {},
+        10);
+
+    const auto fast_metrics =
+        fast_mode.evaluate(corpus);
+
+    assert(fast_metrics.samples > 0);
+    assert(std::isfinite(fast_metrics.mean_loss));
+    assert(std::isfinite(fast_metrics.perplexity));
+    assert(std::isfinite(fast_metrics.accuracy));
+
     const std::string generated =
         continuous.generate(
             "hello",
