@@ -1265,7 +1265,7 @@ bool ULTRONModel::load_checkpoint(
     std::uint64_t version = 0;
 
     if (!read_u64(input, version) ||
-        (version != 4 && version != 5 && version != 6)) {
+        (version != 3 && version != 4 && version != 5 && version != 6)) {
         return false;
     }
 
