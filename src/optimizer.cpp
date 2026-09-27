@@ -160,10 +160,12 @@ void AdamOptimizer::step(
          i < weights.size();
          ++i) {
 
-        const float gradient =
-            std::isfinite(gradients[i])
-                ? gradients[i]
-                : 0.0f;
+        const float gradient = gradients[i];
+
+        if (!std::isfinite(gradient)) {
+            throw std::runtime_error(
+                "Adam received a non-finite gradient");
+        }
 
         first_moment_[i] =
             beta1_ * first_moment_[i] +
