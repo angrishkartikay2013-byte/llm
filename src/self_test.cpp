@@ -236,6 +236,79 @@ int run_ultron_smoke_tests() {
         assert(std::isfinite(value));
     }
 
+    // Numerical gradient regression: compare several analytical transformer
+    // gradients with finite-difference estimates of a scalar loss. This catches
+    // silent backpropagation mistakes that a "finite" gradient test cannot.
+    std::vector<float> transformer_parameters;
+    transformer.get_parameters(transformer_parameters);
+    const std::vector<float> original_parameters =
+        transformer_parameters;
+
+    const auto scalar_loss =
+        [&]() {
+            const auto output =
+                transformer.forward(inputs);
+            double loss = 0.0;
+            for (std::size_t row = 0;
+                 row < output.size();
+                 ++row) {
+                for (std::size_t column = 0;
+                     column < output[row].size();
+                     ++column) {
+                    loss +=
+                        static_cast<double>(output[row][column]) *
+                        static_cast<double>(grad_output[row][column]);
+                }
+            }
+            return loss;
+        };
+
+    constexpr float kFiniteDifferenceStep = 1e-3f;
+    const std::size_t checked_parameters =
+        std::min<std::size_t>(
+            8,
+            transformer_parameters.size());
+
+    for (std::size_t parameter = 0;
+         parameter < checked_parameters;
+         ++parameter) {
+        transformer_parameters =
+            original_parameters;
+        transformer_parameters[parameter] +=
+            kFiniteDifferenceStep;
+        transformer.set_parameters(
+            transformer_parameters);
+        const double plus_loss =
+            scalar_loss();
+
+        transformer_parameters =
+            original_parameters;
+        transformer_parameters[parameter] -=
+            kFiniteDifferenceStep;
+        transformer.set_parameters(
+            transformer_parameters);
+        const double minus_loss =
+            scalar_loss();
+
+        const double numerical_gradient =
+            (plus_loss - minus_loss) /
+            (2.0 * static_cast<double>(
+                kFiniteDifferenceStep));
+
+        const double analytical_gradient =
+            static_cast<double>(
+                flattened_gradients[parameter]);
+
+        assert(
+            std::fabs(
+                numerical_gradient -
+                analytical_gradient) <
+            2e-2);
+    }
+
+    transformer.set_parameters(
+        original_parameters);
+
     // Train, evaluate, and verify learned-memory behavior.
     const std::string corpus =
         "hello ultron hello ultron hello ultron "
