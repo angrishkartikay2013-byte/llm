@@ -110,7 +110,7 @@ function Invoke-UltronPrompt {
     $inputText = $Prompt + [Environment]::NewLine + "exit" + [Environment]::NewLine
     $lines = @(
         $inputText |
-            & $exe --load $LoadedCheckpoint --max-tokens 24 --temperature 0.35 --top-k 5 --no-online-learning 2>&1 |
+            & $exe --load $LoadedCheckpoint --max-tokens 24 --temperature 0.35 --top-k 5 --no-online-learning --no-history 2>&1 |
             ForEach-Object { [string]$_ }
     )
 
