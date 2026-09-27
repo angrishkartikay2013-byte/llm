@@ -2490,11 +2490,13 @@ bool ULTRONModel::save_checkpoint(
     const char magic[] = "ULTRON1";
     output.write(magic, sizeof(magic) - 1);
 
-    if (!write_u64(output, 6) ||
+    if (!write_u64(output, 7) ||
         !impl_->tokenizer.save(output) ||
         !impl_->embedding.save(output) ||
         !impl_->transformer.save(output) ||
-        !impl_->transformer2.save(output)) {
+        !impl_->transformer2.save(output) ||
+        !impl_->transformer3.save(output) ||
+        !impl_->transformer4.save(output)) {
         return false;
     }
 
@@ -2555,6 +2557,8 @@ bool ULTRONModel::save_checkpoint(
     if (!save_optimizer(impl_->output_optimizer) ||
         !save_optimizer(impl_->transformer_optimizer) ||
         !save_optimizer(impl_->transformer2_optimizer) ||
+        !save_optimizer(impl_->transformer3_optimizer) ||
+        !save_optimizer(impl_->transformer4_optimizer) ||
         !save_optimizer(impl_->embedding_optimizer)) {
         return false;
     }
@@ -2584,8 +2588,7 @@ bool ULTRONModel::load_checkpoint(
 
     std::uint64_t version = 0;
 
-    if (!read_u64(input, version) ||
-        (version != 3 && version != 4 && version != 5 && version != 6)) {
+    if (!read_u64(input, version) || version != 7) {
         return false;
     }
 
@@ -2616,11 +2619,31 @@ bool ULTRONModel::load_checkpoint(
         kFeedForwardSize,
         101);
 
+    TransformerBlock transformer3(
+        kEmbeddingSize,
+        kHeads,
+        kFeedForwardSize,
+        191);
+
+    TransformerBlock transformer4(
+        kEmbeddingSize,
+        kHeads,
+        kFeedForwardSize,
+        281);
+
     if (!transformer.load(input)) {
         return false;
     }
 
     if (!transformer2.load(input)) {
+        return false;
+    }
+
+    if (!transformer3.load(input)) {
+        return false;
+    }
+
+    if (!transformer4.load(input)) {
         return false;
     }
 
@@ -2682,9 +2705,11 @@ bool ULTRONModel::load_checkpoint(
     std::unique_ptr<AdamOptimizer> output_optimizer;
     std::unique_ptr<AdamOptimizer> transformer_optimizer;
     std::unique_ptr<AdamOptimizer> transformer2_optimizer;
+    std::unique_ptr<AdamOptimizer> transformer3_optimizer;
+    std::unique_ptr<AdamOptimizer> transformer4_optimizer;
     std::unique_ptr<AdamOptimizer> embedding_optimizer;
 
-    if (version >= 6) {
+    {
         struct LoadedOptimizer {
             bool valid = false;
             std::unique_ptr<AdamOptimizer> optimizer;
@@ -2729,6 +2754,14 @@ bool ULTRONModel::load_checkpoint(
             load_optimizer(
                 transformer2.parameter_count());
 
+        auto loaded_transformer3 =
+            load_optimizer(
+                transformer3.parameter_count());
+
+        auto loaded_transformer4 =
+            load_optimizer(
+                transformer4.parameter_count());
+
         auto loaded_embedding =
             load_optimizer(
                 embedding.parameter_count());
@@ -2736,6 +2769,8 @@ bool ULTRONModel::load_checkpoint(
         if (!loaded_output.valid ||
             !loaded_transformer.valid ||
             !loaded_transformer2.valid ||
+            !loaded_transformer3.valid ||
+            !loaded_transformer4.valid ||
             !loaded_embedding.valid) {
             return false;
         }
@@ -2749,6 +2784,12 @@ bool ULTRONModel::load_checkpoint(
         transformer2_optimizer =
             std::move(loaded_transformer2.optimizer);
 
+        transformer3_optimizer =
+            std::move(loaded_transformer3.optimizer);
+
+        transformer4_optimizer =
+            std::move(loaded_transformer4.optimizer);
+
         embedding_optimizer =
             std::move(loaded_embedding.optimizer);
     }
@@ -2761,6 +2802,12 @@ bool ULTRONModel::load_checkpoint(
     impl_->transformer2 =
         std::move(transformer2);
 
+    impl_->transformer3 =
+        std::move(transformer3);
+
+    impl_->transformer4 =
+        std::move(transformer4);
+
     impl_->output_weights =
         std::move(weights);
     impl_->learned_answers =
@@ -2772,6 +2819,10 @@ bool ULTRONModel::load_checkpoint(
         std::move(transformer_optimizer);
     impl_->transformer2_optimizer =
         std::move(transformer2_optimizer);
+    impl_->transformer3_optimizer =
+        std::move(transformer3_optimizer);
+    impl_->transformer4_optimizer =
+        std::move(transformer4_optimizer);
     impl_->embedding_optimizer =
         std::move(embedding_optimizer);
 
