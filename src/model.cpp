@@ -35,10 +35,11 @@
 #endif
 
 namespace {
-constexpr std::size_t kEmbeddingSize = 32;
-constexpr std::size_t kHeads = 4;
-constexpr std::size_t kFeedForwardSize = 128;
-constexpr std::size_t kTransformerLayers = 2;
+// ULTRON "Big" CPU architecture: ~1M parameters with the current 769-token BPE.
+constexpr std::size_t kEmbeddingSize = 128;
+constexpr std::size_t kHeads = 8;
+constexpr std::size_t kFeedForwardSize = 512;
+constexpr std::size_t kTransformerLayers = 4;
 constexpr std::size_t kMaxSequenceLength = 256;
 
 struct TrainingSpeed {
@@ -49,16 +50,16 @@ struct TrainingSpeed {
 
 TrainingSpeed training_speed(std::size_t speed) {
     switch (std::clamp(speed, std::size_t(1), std::size_t(10))) {
-        case 1: return {128, 1, 127};
-        case 2: return {96, 1, 95};
-        case 3: return {80, 1, 79};
-        case 4: return {64, 1, 63};
-        case 5: return {48, 1, 47};
-        case 6: return {32, 1, 31};
-        case 7: return {32, 2, 31};
-        case 8: return {24, 4, 47};
-        case 9: return {16, 6, 127};
-        default: return {16, 8, 255};
+        case 1: return {256, 1, 255};
+        case 2: return {192, 1, 191};
+        case 3: return {128, 1, 127};
+        case 4: return {96, 1, 95};
+        case 5: return {64, 1, 63};
+        case 6: return {64, 2, 63};
+        case 7: return {48, 2, 95};
+        case 8: return {48, 4, 95};
+        case 9: return {32, 4, 127};
+        default: return {32, 8, 127};
     }
 }
 
