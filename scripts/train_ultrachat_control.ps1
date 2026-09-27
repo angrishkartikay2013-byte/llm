@@ -4,7 +4,7 @@ param(
     [string]$Checkpoint = "models/ultron_big.bin",
     [int]$Epochs = 1,
     [double]$LearningRate = 0.001,
-    [int]$Speed = 10,
+    [int]$Speed = 3,
     [switch]$Fresh
 )
 
