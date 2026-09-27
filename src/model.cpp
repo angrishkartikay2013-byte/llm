@@ -183,6 +183,11 @@ public:
                         lines_.push_back(std::move(line));
                     }
 
+                    std::cout
+                        << "[INPUT] command received and queued."
+                        << '\n';
+                    std::cout.flush();
+
                     condition_.notify_one();
                 }
 
@@ -250,10 +255,18 @@ TrainingHotkeyAction poll_training_hotkey() {
             line.end());
 
         if (line == "2") {
+            std::cout
+                << "[INPUT] 2 queued -> save + test at next completed batch."
+                << '\n';
+            std::cout.flush();
             return TrainingHotkeyAction::SaveAndTest;
         }
 
         if (line == "1") {
+            std::cout
+                << "[INPUT] 1 queued -> save + continue at next completed batch."
+                << '\n';
+            std::cout.flush();
             return TrainingHotkeyAction::Save;
         }
     }
