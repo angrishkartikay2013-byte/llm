@@ -44,20 +44,21 @@ constexpr std::size_t kMaxSequenceLength = 256;
 struct TrainingSpeed {
     std::size_t sequence_length = 128;
     std::size_t sample_stride = 1;
+    std::size_t window_stride = 127;
 };
 
 TrainingSpeed training_speed(std::size_t speed) {
     switch (std::clamp(speed, std::size_t(1), std::size_t(10))) {
-        case 1: return {128, 1};
-        case 2: return {96, 1};
-        case 3: return {80, 1};
-        case 4: return {64, 1};
-        case 5: return {48, 1};
-        case 6: return {32, 1};
-        case 7: return {32, 2};
-        case 8: return {24, 4};
-        case 9: return {16, 6};
-        default: return {16, 8};
+        case 1: return {128, 1, 127};
+        case 2: return {96, 1, 95};
+        case 3: return {80, 1, 79};
+        case 4: return {64, 1, 63};
+        case 5: return {48, 1, 47};
+        case 6: return {32, 1, 31};
+        case 7: return {32, 2, 31};
+        case 8: return {24, 4, 47};
+        case 9: return {16, 6, 127};
+        default: return {16, 8, 255};
     }
 }
 
@@ -924,6 +925,8 @@ float ULTRONModel::train(
         << speed_config.sequence_length
         << " | sample stride "
         << speed_config.sample_stride
+        << " | window stride "
+        << speed_config.window_stride
         << " | inference context remains "
         << kMaxSequenceLength
         << " | CPU worker threads "
@@ -942,9 +945,9 @@ float ULTRONModel::train(
     // its final context window. Keep a one-token overlap so next-token
     // examples at window boundaries are still represented.
     const std::size_t window_step =
-        speed_config.sequence_length > 1
-            ? speed_config.sequence_length - 1
-            : 1;
+        std::max<std::size_t>(
+            1,
+            speed_config.window_stride);
 
     // Build explicit context-window start positions once. Each window is
     // independent during a worker batch, so the outer worker pool can keep
