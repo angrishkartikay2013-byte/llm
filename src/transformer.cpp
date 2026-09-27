@@ -267,7 +267,9 @@ TransformerBlock::TransformerBlock(
     unsigned int seed)
     : embedding_size_(embedding_size),
       num_heads_(num_heads),
-      head_size_(embedding_size / num_heads),
+      head_size_(num_heads == 0
+                     ? 0
+                     : embedding_size / num_heads),
       feed_forward_size_(feed_forward_size),
       query_weight_(random_matrix(embedding_size, embedding_size, seed)),
       key_weight_(random_matrix(embedding_size, embedding_size, seed + 1)),
