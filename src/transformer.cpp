@@ -697,6 +697,7 @@ std::vector<std::vector<float>> TransformerBlock::forward(
                     }
                 }
                 }
+                }
                 catch (...) {
                     capture_transformer_worker_exception(
                         worker_error,
