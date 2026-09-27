@@ -2,9 +2,9 @@ param(
     [string]$TrainData = "data/external/ultrachat_train_sft.txt",
     [string]$ValidationData = "data/external/ultrachat_test_sft.txt",
     [string]$Checkpoint = "models/ultron_ultrachat_control.bin",
-    [int]$Epochs = 5,
+    [int]$Epochs = 1,
     [double]$LearningRate = 0.001,
-    [int]$Speed = 1,
+    [int]$Speed = 10,
     [switch]$Fresh
 )
 
@@ -63,6 +63,9 @@ Write-Host " Validation : $ValidationData ($($validationInfo.Length) bytes)"
 Write-Host " Epochs     : $Epochs"
 Write-Host " Learning   : $LearningRate"
 Write-Host " Speed      : $Speed/10"
+if ($Speed -eq 10) {
+    Write-Host " Mode       : TURBO (16-token context / 8-token sampling stride)"
+}
 Write-Host " Checkpoint : $Checkpoint"
 Write-Host "============================================================"
 
