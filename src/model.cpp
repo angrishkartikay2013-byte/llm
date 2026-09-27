@@ -21,9 +21,11 @@
 #include <cctype>
 #include <thread>
 #include <filesystem>
+#include <atomic>
+#include <chrono>
 
 #ifdef _WIN32
-#include <conio.h>
+#include <windows.h>
 #endif
 
 namespace {
@@ -149,29 +151,68 @@ bool read_string(
 }
 
 enum class TrainingHotkeyAction {
-    None,
-    Save,
-    SaveAndTest
+    None = 0,
+    Save = 1,
+    SaveAndTest = 2
 };
 
 bool g_training_test_requested = false;
+std::atomic<int> g_training_hotkey_pending{0};
+std::atomic<bool> g_training_hotkey_watcher_stop{false};
+
+#ifdef _WIN32
+bool control_key_down() {
+    return (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+}
+
+bool letter_key_down(int virtual_key) {
+    return (GetAsyncKeyState(virtual_key) & 0x8000) != 0;
+}
+
+void watch_training_hotkeys() {
+    bool previous_t = false;
+    bool previous_u = false;
+
+    while (!g_training_hotkey_watcher_stop.load(std::memory_order_relaxed)) {
+        const bool ctrl = control_key_down();
+        const bool current_t = ctrl && letter_key_down('T');
+        const bool current_u = ctrl && letter_key_down('U');
+
+        // Record a key press only once, even when the key is held down.
+        if (current_t && !previous_t) {
+            g_training_hotkey_pending.store(
+                static_cast<int>(TrainingHotkeyAction::SaveAndTest),
+                std::memory_order_release);
+        } else if (current_u && !previous_u) {
+            int expected = static_cast<int>(TrainingHotkeyAction::None);
+            g_training_hotkey_pending.compare_exchange_strong(
+                expected,
+                static_cast<int>(TrainingHotkeyAction::Save),
+                std::memory_order_acq_rel);
+        }
+
+        previous_t = current_t;
+        previous_u = current_u;
+
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(5));
+    }
+}
+#endif
 
 TrainingHotkeyAction poll_training_hotkey() {
-#ifdef _WIN32
-    while (_kbhit()) {
-        const int key = _getch();
+    const int pending =
+        g_training_hotkey_pending.exchange(
+            static_cast<int>(TrainingHotkeyAction::None),
+            std::memory_order_acq_rel);
 
-        // Windows console Ctrl+T / Ctrl+U arrive as ASCII control codes
-        // 0x14 / 0x15 respectively.
-        if (key == 0x14) {
-            return TrainingHotkeyAction::SaveAndTest;
-        }
-
-        if (key == 0x15) {
-            return TrainingHotkeyAction::Save;
-        }
+    if (pending == static_cast<int>(TrainingHotkeyAction::SaveAndTest)) {
+        return TrainingHotkeyAction::SaveAndTest;
     }
-#endif
+
+    if (pending == static_cast<int>(TrainingHotkeyAction::Save)) {
+        return TrainingHotkeyAction::Save;
+    }
 
     return TrainingHotkeyAction::None;
 }
@@ -759,6 +800,26 @@ float ULTRONModel::train(
         << " | CPU worker threads "
         << training_threads
         << '\n';
+
+#ifdef _WIN32
+    g_training_hotkey_pending.store(
+        static_cast<int>(TrainingHotkeyAction::None),
+        std::memory_order_release);
+    g_training_hotkey_watcher_stop.store(
+        false,
+        std::memory_order_release);
+
+    std::jthread hotkey_watcher(
+        [] {
+            watch_training_hotkeys();
+        });
+
+    std::cout
+        << "[train] hotkeys: Ctrl+U = safe save + continue | "
+        << "Ctrl+T = safe save + test mode"
+        << '\n';
+    std::cout.flush();
+#endif
 
     // Walk across the complete corpus instead of silently training only on
     // its final context window. Keep a one-token overlap so next-token
