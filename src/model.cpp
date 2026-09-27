@@ -741,7 +741,8 @@ float ULTRONModel::train(
         std::size_t,
         float)>& progress,
     std::size_t speed,
-    const std::string& checkpoint_path) {
+    const std::string& checkpoint_path,
+    bool enable_training_controls) {
 
     g_training_test_requested.store(
         false,
@@ -751,6 +752,7 @@ float ULTRONModel::train(
     // reader. Smoke tests and small in-chat teaching calls must never consume
     // the user's terminal input.
     const bool interactive_training_controls =
+        enable_training_controls &&
         !checkpoint_path.empty();
 
     if (interactive_training_controls) {
