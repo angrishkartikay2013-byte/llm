@@ -329,62 +329,8 @@ bool safe_checkpoint_save(
     const ULTRONModel& model,
     const std::string& path) {
 
-    if (path.empty()) {
-        return false;
-    }
-
-    namespace fs = std::filesystem;
-
-    const fs::path destination(path);
-    const fs::path temporary =
-        destination.string() + ".tmp";
-    const fs::path backup =
-        destination.string() + ".bak";
-
-    std::error_code error;
-
-    if (!model.save_checkpoint(temporary.string())) {
-        fs::remove(temporary, error);
-        return false;
-    }
-
-    // Keep a known-good previous checkpoint while replacing the destination.
-    if (fs::exists(backup, error)) {
-        fs::remove(backup, error);
-    }
-
-    if (fs::exists(destination, error)) {
-        fs::copy_file(
-            destination,
-            backup,
-            fs::copy_options::overwrite_existing,
-            error);
-
-        if (error) {
-            fs::remove(temporary, error);
-            return false;
-        }
-
-        fs::remove(destination, error);
-
-        if (error) {
-            fs::remove(temporary, error);
-            return false;
-        }
-    }
-
-    fs::rename(temporary, destination, error);
-
-    if (error) {
-        // Restore the previous checkpoint if replacement failed.
-        if (fs::exists(backup, error)) {
-            fs::rename(backup, destination, error);
-        }
-        fs::remove(temporary, error);
-        return false;
-    }
-
-    return true;
+    // save_checkpoint() performs the atomic temp-file + backup replacement.
+    return model.save_checkpoint(path);
 }
 
 void clip_gradients(
@@ -2526,7 +2472,25 @@ bool ULTRONModel::training_test_requested() const {
 bool ULTRONModel::save_checkpoint(
     const std::string& path) const {
 
-    std::ofstream output(path, std::ios::binary);
+    if (path.empty()) {
+        return false;
+    }
+
+    namespace fs = std::filesystem;
+
+    const fs::path destination(path);
+    const fs::path temporary =
+        destination.string() + ".tmp";
+    const fs::path backup =
+        destination.string() + ".bak";
+
+    std::error_code error;
+
+    fs::remove(temporary, error);
+
+    std::ofstream output(
+        temporary,
+        std::ios::binary);
 
     if (!output) return false;
 
@@ -2603,6 +2567,62 @@ bool ULTRONModel::save_checkpoint(
         !save_optimizer(impl_->transformer3_optimizer) ||
         !save_optimizer(impl_->transformer4_optimizer) ||
         !save_optimizer(impl_->embedding_optimizer)) {
+        output.close();
+        fs::remove(temporary, error);
+        return false;
+    }
+
+    output.flush();
+    if (!output) {
+        output.close();
+        fs::remove(temporary, error);
+        return false;
+    }
+
+    output.close();
+
+    if (fs::exists(backup, error)) {
+        fs::remove(backup, error);
+        if (error) {
+            fs::remove(temporary, error);
+            return false;
+        }
+    }
+
+    if (fs::exists(destination, error)) {
+        fs::copy_file(
+            destination,
+            backup,
+            fs::copy_options::overwrite_existing,
+            error);
+
+        if (error) {
+            fs::remove(temporary, error);
+            return false;
+        }
+
+        fs::remove(destination, error);
+
+        if (error) {
+            fs::remove(temporary, error);
+            return false;
+        }
+    }
+
+    fs::rename(
+        temporary,
+        destination,
+        error);
+
+    if (error) {
+        if (fs::exists(backup, error)) {
+            std::error_code restore_error;
+            fs::rename(
+                backup,
+                destination,
+                restore_error);
+        }
+        fs::remove(temporary, error);
         return false;
     }
 
