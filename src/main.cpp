@@ -30,6 +30,7 @@ struct Options {
     bool speed_set = false;
     bool self_test = false;
     bool online_learning = false;
+    bool use_history = false;
     bool interactive = true;
 };
 
@@ -97,6 +98,10 @@ Options parse(int argc, char** argv) {
             options.online_learning = true;
         } else if (argument == "--no-online-learning") {
             options.online_learning = false;
+        } else if (argument == "--history") {
+            options.use_history = true;
+        } else if (argument == "--no-history") {
+            options.use_history = false;
         } else if (argument == "--non-interactive") {
             options.interactive = false;
         } else if (
@@ -114,6 +119,7 @@ Options parse(int argc, char** argv) {
                 << "--speed N (1=full training, 10=fastest)\n"
                 << "--self-test\n"
                 << "--online-learning --no-online-learning\n"
+                << "--history --no-history\n"
                 << "--non-interactive\n";
 
             std::exit(0);
@@ -423,16 +429,23 @@ int main(int argc, char** argv) {
                 continue;
             }
 
-            std::string prompt = input;
-            const std::string memory =
-                conversations.recent_context(4);
+            std::string prompt;
+            if (options.use_history) {
+                const std::string memory =
+                    conversations.recent_context(4);
 
-            if (!memory.empty()) {
-                prompt =
-                    memory +
-                    "USER: " +
-                    input +
-                    "\nULTRON:";
+                if (!memory.empty()) {
+                    prompt =
+                        memory +
+                        "USER: " +
+                        input +
+                        "\nULTRON:";
+                } else {
+                    prompt =
+                        "USER: " +
+                        input +
+                        "\nULTRON:";
+                }
             } else {
                 prompt =
                     "USER: " +
