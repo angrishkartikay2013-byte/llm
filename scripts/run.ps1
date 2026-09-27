@@ -1,5 +1,5 @@
 param(
-    [string]$Checkpoint = "models/ultron.bin",
+    [string]$Checkpoint = "models/ultron_ultrachat_control.bin",
     [int]$MaxTokens = 16,
     [double]$Temperature = 0.8,
     [int]$TopK = 8
