@@ -64,7 +64,7 @@ Write-Host " Epochs     : $Epochs"
 Write-Host " Learning   : $LearningRate"
 Write-Host " Speed      : $Speed/10"
 if ($Speed -eq 10) {
-    Write-Host " Mode       : TURBO (16-token context / 8-token sampling stride)"
+    Write-Host " Mode       : TURBO (32-token context / 8-token sampling stride; sparse corpus sampling)"
 }
 Write-Host " Checkpoint : $Checkpoint"
 Write-Host "============================================================"
