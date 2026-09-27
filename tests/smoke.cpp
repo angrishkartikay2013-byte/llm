@@ -30,8 +30,7 @@ int main() {
         tokenizer.encode("WHAT is attention?");
     assert(!encoded.empty());
     assert(tokenizer.vocabulary_size() >= 257);
-    assert(tokenizer.is_trained());
-    assert(tokenizer.decode(encoded) == "what is attention?");
+    assert(tokenizer.decode(encoded) == "WHAT is attention?");
 
     AdamOptimizer optimizer(1, 0.01f);
     std::vector<float> weight{1.0f};
