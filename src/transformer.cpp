@@ -555,6 +555,7 @@ std::vector<std::vector<float>> TransformerBlock::forward(
                     values[i] =
                         linear(embeddings[i], value_weight_);
                 }
+                }
                 catch (...) {
                     capture_transformer_worker_exception(
                         worker_error,
