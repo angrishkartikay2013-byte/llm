@@ -1,4 +1,5 @@
 name: ULTRON Overnight Training
+# Triggered for the overnight training run.
 
 on:
   push:
