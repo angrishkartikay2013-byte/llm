@@ -1,5 +1,5 @@
 param(
-    [string]$Checkpoint = "models/ultron_ultrachat_control.bin",
+    [string]$Checkpoint = "models/ultron_big.bin",
     [string]$DialogueData = "data/external/ultrachat_train_sft.txt",
     [int]$EnglishSentences = 15000,
     [int]$EnglishChars = 750000,
