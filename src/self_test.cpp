@@ -12,6 +12,8 @@
 #include <iostream>
 #include <sstream>
 #include <cstdint>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -264,14 +266,25 @@ int run_ultron_smoke_tests() {
         };
 
     constexpr float kFiniteDifferenceStep = 1e-3f;
-    const std::size_t checked_parameters =
-        std::min<std::size_t>(
-            8,
-            transformer_parameters.size());
+    const std::vector<std::size_t> checked_parameters = {
+        0,
+        63,
+        64,
+        127,
+        128,
+        191,
+        192,
+        255,
+        256,
+        383,
+        384,
+        511
+    };
 
-    for (std::size_t parameter = 0;
-         parameter < checked_parameters;
-         ++parameter) {
+    for (const std::size_t parameter : checked_parameters) {
+        if (parameter >= transformer_parameters.size()) {
+            continue;
+        }
         transformer_parameters =
             original_parameters;
         transformer_parameters[parameter] +=
@@ -317,10 +330,21 @@ int run_ultron_smoke_tests() {
         "how are you how are you how are you.";
 
     ULTRONModel continuous;
-    continuous.train(
-        corpus,
-        2,
-        0.001f);
+    const float first_epoch_loss =
+        continuous.train(
+            corpus,
+            1,
+            0.001f);
+
+    const float second_epoch_loss =
+        continuous.train(
+            corpus,
+            1,
+            0.001f);
+
+    assert(std::isfinite(first_epoch_loss));
+    assert(std::isfinite(second_epoch_loss));
+    assert(second_epoch_loss < first_epoch_loss);
 
     const auto continuous_metrics =
         continuous.evaluate(corpus);
