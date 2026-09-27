@@ -814,6 +814,7 @@ std::vector<std::vector<float>> TransformerBlock::forward(
                         layer_norm(
                             ffn_residual[i]);
                 }
+                }
                 catch (...) {
                     capture_transformer_worker_exception(
                         worker_error,
