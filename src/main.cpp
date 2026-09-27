@@ -178,10 +178,32 @@ int main(int argc, char** argv) {
         if (options.self_test) {
             return run_ultron_smoke_tests();
         }
-
         ULTRONModel model;
         ConversationStore conversations;
         DictionaryClient dictionary;
+
+        // Interactive ULTRON should use the most recently trained model by default.
+        // The checkpoint contains the tokenizer, embeddings, transformer weights,
+        // learned associations, and optimizer state, so loading it keeps inference
+        // aligned with the vocabulary used during training.
+        if (options.load_file.empty() &&
+            options.train_file.empty() &&
+            options.eval_file.empty() &&
+            options.interactive) {
+            const std::string default_checkpoint =
+                "models/ultron_ultrachat_control.bin";
+            std::ifstream checkpoint_probe(
+                default_checkpoint,
+                std::ios::binary);
+
+            if (checkpoint_probe.good()) {
+                options.load_file = default_checkpoint;
+                std::cout
+                    << "Using default ULTRON checkpoint: "
+                    << default_checkpoint
+                    << '\\n';
+            }
+        }
 
         if (!options.train_file.empty() && !options.speed_set && options.interactive) {
             std::cout
