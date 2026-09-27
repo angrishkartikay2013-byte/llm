@@ -88,6 +88,13 @@ $started = Get-Date
 $exitCode = $LASTEXITCODE
 $finished = Get-Date
 
+if ($exitCode -eq 10) {
+    Write-Host ""
+    Write-Host "Ctrl+T requested a safe stop and ULTRON test mode was completed."
+    Write-Host "The saved checkpoint is preserved. Skipping full-corpus post-training evaluation."
+    exit 0
+}
+
 if ($exitCode -ne 0) { throw "HF control training failed with exit code $exitCode." }
 if (!(Test-Path $checkpointPath)) { throw "Training reported success but did not create $Checkpoint." }
 
