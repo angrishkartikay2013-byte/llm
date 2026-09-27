@@ -236,14 +236,6 @@ private:
 
 ConsoleLineReader g_console_input;
 
-void ultron_start_console_input() {
-    g_console_input.start();
-}
-
-bool ultron_read_console_line(std::string& line) {
-    return g_console_input.wait_pop(line);
-}
-
 TrainingHotkeyAction poll_training_hotkey() {
     std::string line;
 
@@ -363,6 +355,16 @@ void clip_gradients(
         gradients,
         scale);
 }
+}
+
+// These functions intentionally have external linkage because main.cpp uses the
+// shared console reader to consume the same buffered input stream after training.
+void ultron_start_console_input() {
+    g_console_input.start();
+}
+
+bool ultron_read_console_line(std::string& line) {
+    return g_console_input.wait_pop(line);
 }
 
 class ULTRONModel::Impl {
