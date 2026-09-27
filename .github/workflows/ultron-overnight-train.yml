@@ -1,0 +1,127 @@
+name: ULTRON Overnight Training
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ultron-overnight-train.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    runs-on: windows-latest
+    timeout-minutes: 350
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Release build
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+
+      - name: Build ULTRON
+        shell: pwsh
+        run: |
+          cmake --build build --parallel 4
+
+      - name: Run self-test
+        shell: pwsh
+        run: |
+          & .\build\ultron.exe --self-test
+          if ($LASTEXITCODE -ne 0) {
+            throw "ULTRON self-test failed. Training will not start."
+          }
+
+      - name: Download UltraChat control corpus
+        shell: pwsh
+        run: |
+          .\scripts\download_ultrachat.ps1 -TrainConversations 3000 -ValidationConversations 500
+
+      - name: Train continuously with safe checkpoints
+        shell: pwsh
+        env:
+          TRAIN_MINUTES: "300"
+          LEARNING_RATE: "0.001"
+          SPEED: "3"
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = ".\build\ultron.exe"
+          $checkpoint = "models\ultron_big.bin"
+          New-Item -ItemType Directory -Force -Path "models" | Out-Null
+          $deadline = (Get-Date).AddMinutes([int]$env:TRAIN_MINUTES)
+          $epoch = 0
+          $first = $true
+
+          while ((Get-Date) -lt $deadline) {
+            $epoch++
+            $started = Get-Date
+            Write-Host ""
+            Write-Host "============================================================"
+            Write-Host " ULTRON TRAINING CHUNK $epoch"
+            Write-Host " Started : $started"
+            Write-Host " Speed   : $env:SPEED"
+            Write-Host " LR      : $env:LEARNING_RATE"
+            Write-Host "============================================================"
+
+            $arguments = @(
+              "--train", "data\external\ultrachat_train_sft.txt",
+              "--epochs", "1",
+              "--lr", $env:LEARNING_RATE,
+              "--save", $checkpoint,
+              "--save-every", "1",
+              "--speed", $env:SPEED,
+              "--non-interactive"
+            )
+
+            if (!$first) {
+              $arguments += @("--load", $checkpoint)
+            }
+
+            & $exe @arguments
+            if ($LASTEXITCODE -ne 0) {
+              throw "Training chunk $epoch failed with exit code $LASTEXITCODE."
+            }
+            if (!(Test-Path $checkpoint)) {
+              throw "Training chunk $epoch reported success but no checkpoint was created."
+            }
+            $first = $false
+            $finished = Get-Date
+            Write-Host "Chunk $epoch finished at $finished."
+          }
+
+          Write-Host ""
+          Write-Host "Training window reached its safe time budget."
+          Write-Host "Final checkpoint: $checkpoint"
+          if (!(Test-Path $checkpoint)) {
+            throw "No final checkpoint exists."
+          }
+
+      - name: Evaluate final checkpoint
+        if: always()
+        shell: pwsh
+        run: |
+          if (!(Test-Path "models\ultron_big.bin")) {
+            Write-Warning "No checkpoint available; skipping evaluation."
+            exit 0
+          }
+          Write-Host "================ FINAL VALIDATION METRICS ================"
+          & .\build\ultron.exe --load models\ultron_big.bin --eval data\external\ultrachat_test_sft.txt --no-online-learning --non-interactive
+          if ($LASTEXITCODE -ne 0) {
+            throw "Final validation evaluation failed."
+          }
+
+      - name: Upload trained checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultron-big-checkpoint
+          path: |
+            models/ultron_big.bin
+            data/external/ultrachat_manifest.txt
+          if-no-files-found: warn
+          retention-days: 30
