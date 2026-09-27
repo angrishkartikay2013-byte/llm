@@ -2145,6 +2145,149 @@ std::string ULTRONModel::generate(
                    text[text.size() - 4] == last;
         };
 
+    // Byte-level BPE can emit individual UTF-8 bytes. A byte that starts a
+    // multi-byte character is a valid generation prefix only when its
+    // eventual continuation bytes can still make a legal Unicode scalar.
+    // Rejecting impossible prefixes prevents random binary bytes from being
+    // rendered by the console as mojibake while still allowing real UTF-8.
+    const auto is_valid_utf8_prefix =
+        [](const std::string& text) {
+
+            std::size_t index = 0;
+
+            while (index < text.size()) {
+                const unsigned char first =
+                    static_cast<unsigned char>(text[index]);
+
+                if (first <= 0x7FU) {
+                    ++index;
+                    continue;
+                }
+
+                std::size_t width = 0;
+                unsigned char second_min = 0x80U;
+                unsigned char second_max = 0xBFU;
+
+                if (first >= 0xC2U && first <= 0xDFU) {
+                    width = 2;
+                } else if (first == 0xE0U) {
+                    width = 3;
+                    second_min = 0xA0U;
+                } else if (first >= 0xE1U && first <= 0xECU) {
+                    width = 3;
+                } else if (first == 0xEDU) {
+                    width = 3;
+                    second_max = 0x9FU;
+                } else if (first >= 0xEEU && first <= 0xEFU) {
+                    width = 3;
+                } else if (first == 0xF0U) {
+                    width = 4;
+                    second_min = 0x90U;
+                } else if (first >= 0xF1U && first <= 0xF3U) {
+                    width = 4;
+                } else if (first == 0xF4U) {
+                    width = 4;
+                    second_max = 0x8FU;
+                } else {
+                    return false;
+                }
+
+                if (text.size() - index < width) {
+                    return true;
+                }
+
+                const unsigned char second =
+                    static_cast<unsigned char>(text[index + 1]);
+
+                if (second < second_min ||
+                    second > second_max) {
+                    return false;
+                }
+
+                for (std::size_t offset = 2;
+                     offset < width;
+                     ++offset) {
+                    const unsigned char continuation =
+                        static_cast<unsigned char>(
+                            text[index + offset]);
+
+                    if (continuation < 0x80U ||
+                        continuation > 0xBFU) {
+                        return false;
+                    }
+                }
+
+                index += width;
+            }
+
+            return true;
+        };
+
+    const auto trim_incomplete_utf8 =
+        [&](std::string text) {
+
+            while (!text.empty() &&
+                   !is_valid_utf8_prefix(text)) {
+                text.pop_back();
+            }
+
+            if (text.empty()) {
+                return text;
+            }
+
+            // A valid prefix is allowed to end inside a multi-byte character.
+            // Remove that incomplete tail before returning final user output.
+            while (!text.empty()) {
+                const unsigned char last =
+                    static_cast<unsigned char>(text.back());
+
+                if (last <= 0x7FU) {
+                    break;
+                }
+
+                std::size_t continuation_count = 0;
+                std::size_t index = text.size();
+
+                while (index > 0) {
+                    const unsigned char byte =
+                        static_cast<unsigned char>(text[index - 1]);
+
+                    if (byte < 0x80U || byte > 0xBFU) {
+                        break;
+                    }
+
+                    ++continuation_count;
+                    --index;
+                }
+
+                if (index == 0) {
+                    text.clear();
+                    break;
+                }
+
+                const unsigned char start =
+                    static_cast<unsigned char>(text[index - 1]);
+
+                std::size_t expected_width = 1;
+                if (start >= 0xC2U && start <= 0xDFU) {
+                    expected_width = 2;
+                } else if (start >= 0xE0U && start <= 0xEFU) {
+                    expected_width = 3;
+                } else if (start >= 0xF0U && start <= 0xF4U) {
+                    expected_width = 4;
+                }
+
+                if (expected_width ==
+                    continuation_count + 1) {
+                    break;
+                }
+
+                text.resize(index - 1);
+            }
+
+            return text;
+        };
+
     for (std::size_t generated = 0;
          generated < max_new_tokens;
          ++generated) {
@@ -2308,6 +2451,11 @@ std::string ULTRONModel::generate(
             std::string candidate_text =
                 generated_text + piece;
 
+            if (!is_valid_utf8_prefix(candidate_text)) {
+                scaled_logits[token_id] = kInvalidLogit;
+                continue;
+            }
+
             if (creates_repeated_character_run(candidate_text)) {
                 score -= 1.75f;
             }
@@ -2461,10 +2609,15 @@ std::string ULTRONModel::generate(
     }
 
     if (cut != std::string::npos) {
-        return prompt + generated_text.substr(0, cut);
+        generated_text =
+            generated_text.substr(0, cut);
     }
 
-    return result.str();
+    generated_text =
+        trim_incomplete_utf8(
+            generated_text);
+
+    return prompt + generated_text;
 }
 
 bool ULTRONModel::training_test_requested() const {
