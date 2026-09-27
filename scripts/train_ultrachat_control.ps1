@@ -24,8 +24,25 @@ if (!(Test-Path $exe)) { $exe = Join-Path $repoRoot "build/ultron.exe" }
 if (!(Test-Path $exe)) { throw "ULTRON executable not found. Build it first." }
 
 Write-Host "Building ULTRON Release..."
-cmake --build (Join-Path $repoRoot "build") --config Release
-if ($LASTEXITCODE -ne 0) { throw "Release build failed." }
+$buildDirectory = Join-Path $repoRoot "build"
+$cmakeCommand = Get-Command cmake -ErrorAction SilentlyContinue
+$ninjaCommand = Get-Command ninja -ErrorAction SilentlyContinue
+
+if ($null -ne $cmakeCommand) {
+    cmake --build $buildDirectory --config Release --parallel
+    if ($LASTEXITCODE -ne 0) { throw "Release build failed." }
+} elseif ($null -ne $ninjaCommand -and (Test-Path (Join-Path $buildDirectory "build.ninja"))) {
+    $jobs = [Math]::Max(1, [Environment]::ProcessorCount)
+    Write-Host "CMake is not on PATH; building with Ninja using $jobs logical processors."
+    ninja -C $buildDirectory -j $jobs
+    if ($LASTEXITCODE -ne 0) { throw "Ninja build failed." }
+} elseif (Test-Path (Join-Path $buildDirectory "Release\ultron.exe")) {
+    Write-Host "CMake/Ninja not found, but an existing Release executable is available. Skipping rebuild."
+} elseif (Test-Path (Join-Path $buildDirectory "ultron.exe")) {
+    Write-Host "CMake/Ninja not found, but an existing executable is available. Skipping rebuild."
+} else {
+    throw "Neither CMake nor Ninja is available, and no existing ULTRON executable was found. Install CMake or add it to PATH."
+}
 
 Write-Host "Running self-test..."
 & $exe --self-test
