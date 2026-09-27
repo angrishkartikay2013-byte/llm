@@ -42,7 +42,9 @@ void assert_close(
 }
 
 int run_ultron_smoke_tests() {
-    // Tensor math.
+        std::cout << "[self-test] tensor math" << std::endl;
+
+// Tensor math.
     Tensor a(2, 2);
     Tensor b(2, 2);
     a.at(0, 0) = 1.0f; a.at(0, 1) = 2.0f;
@@ -54,7 +56,9 @@ int run_ultron_smoke_tests() {
     require(std::fabs(product.at(0, 0) - 19.0f) < 1e-5f);
     require(std::fabs(product.at(1, 1) - 50.0f) < 1e-5f);
 
-    // Fresh tokenizer: byte fallback + learned BPE merges.
+        std::cout << "[self-test] tokenizer basics" << std::endl;
+
+// Fresh tokenizer: byte fallback + learned BPE merges.
     const std::string tokenizer_text =
         "Hello, hello! Hello, ULTRON. "
         "How are you? How are you? "
@@ -94,7 +98,9 @@ int run_ultron_smoke_tests() {
         tokenizer.vocabulary_size() ==
         frozen_vocab);
 
-    // Tokenizer serialization must preserve the learned merge table.
+        std::cout << "[self-test] tokenizer serialization" << std::endl;
+
+// Tokenizer serialization must preserve the learned merge table.
     std::stringstream tokenizer_stream(
         std::ios::in |
         std::ios::out |
@@ -111,7 +117,9 @@ int run_ultron_smoke_tests() {
             restored_tokenizer.encode(unseen_text)) ==
         unseen_text);
 
-    // Boundary-aware BPE must keep whitespace, punctuation, and newlines
+        std::cout << "[self-test] tokenizer boundaries" << std::endl;
+
+// Boundary-aware BPE must keep whitespace, punctuation, and newlines
     // as explicit layout boundaries rather than merging them into words.
     const std::string layout_text =
         "Hello, world!\nThis is a test.\nI'm ready.";
@@ -143,7 +151,9 @@ int run_ultron_smoke_tests() {
     require(
         tokenizer.encode("hello\nworld").size() >= 3);
 
-    // Deterministic tokenizer training is important for reproducible models.
+        std::cout << "[self-test] tokenizer determinism" << std::endl;
+
+// Deterministic tokenizer training is important for reproducible models.
     Tokenizer tokenizer_again;
     tokenizer_again.train(tokenizer_text);
 
@@ -155,7 +165,9 @@ int run_ultron_smoke_tests() {
         tokenizer_again.encode(unseen_text) ==
         tokenizer.encode(unseen_text));
 
-    // Legacy tokenizer checkpoints use only a token count followed by
+        std::cout << "[self-test] legacy tokenizer" << std::endl;
+
+// Legacy tokenizer checkpoints use only a token count followed by
     // length-prefixed token strings. They must remain readable after BPE.
     std::stringstream legacy_stream(
         std::ios::in |
@@ -198,7 +210,9 @@ int run_ultron_smoke_tests() {
                 "hello world!")) ==
         "hello world!");
 
-    // Adam sanity and checkpointable state.
+        std::cout << "[self-test] optimizer" << std::endl;
+
+// Adam sanity and checkpointable state.
     AdamOptimizer optimizer(2, 0.01f);
     std::vector<float> weight{1.0f, -1.0f};
     optimizer.step(
@@ -226,7 +240,9 @@ int run_ultron_smoke_tests() {
             optimizer.learning_rate()) <
         1e-8f);
 
-    // Invalid Transformer configurations must fail before any
+        std::cout << "[self-test] transformer config" << std::endl;
+
+// Invalid Transformer configurations must fail before any
     // divide-by-zero or invalid allocation can occur.
     bool invalid_transformer_threw = false;
     try {
@@ -236,7 +252,9 @@ int run_ultron_smoke_tests() {
     }
     require(invalid_transformer_threw);
 
-    // Transformer forward/backward and finite gradients.
+        std::cout << "[self-test] transformer gradients" << std::endl;
+
+// Transformer forward/backward and finite gradients.
     TransformerBlock transformer(8, 2, 16);
     const std::vector<std::vector<float>> inputs = {
         {0.10f, -0.20f, 0.30f, -0.40f, 0.50f, -0.60f, 0.70f, -0.80f},
@@ -292,7 +310,9 @@ int run_ultron_smoke_tests() {
         require(std::isfinite(value));
     }
 
-    // Numerical gradient regression: compare several analytical transformer
+        std::cout << "[self-test] finite-difference gradients" << std::endl;
+
+// Numerical gradient regression: compare several analytical transformer
     // gradients with finite-difference estimates of a scalar loss. This catches
     // silent backpropagation mistakes that a "finite" gradient test cannot.
     std::vector<float> transformer_parameters;
@@ -376,7 +396,9 @@ int run_ultron_smoke_tests() {
     transformer.set_parameters(
         original_parameters);
 
-    // Train, evaluate, and verify learned-memory behavior.
+        std::cout << "[self-test] model training" << std::endl;
+
+// Train, evaluate, and verify learned-memory behavior.
     const std::string corpus =
         "hello ultron hello ultron hello ultron "
         "the system learns language from repeated examples. "
@@ -422,7 +444,9 @@ int run_ultron_smoke_tests() {
         2,
         0.001f);
 
-    // Speed 10 must remain finite and usable; it changes only the training
+        std::cout << "[self-test] speed-10 training" << std::endl;
+
+// Speed 10 must remain finite and usable; it changes only the training
     // compute budget, not the model architecture or checkpoint format.
     ULTRONModel fast_mode;
     fast_mode.train(
@@ -440,6 +464,8 @@ int run_ultron_smoke_tests() {
     require(std::isfinite(fast_metrics.perplexity));
     require(std::isfinite(fast_metrics.accuracy));
 
+    std::cout << "[self-test] generation" << std::endl;
+
     const std::string generated =
         continuous.generate(
             "hello",
@@ -449,6 +475,8 @@ int run_ultron_smoke_tests() {
             42);
 
     require(!generated.empty());
+
+    std::cout << "[self-test] learned answer" << std::endl;
 
     const std::string learned =
         continuous.generate(
@@ -462,6 +490,8 @@ int run_ultron_smoke_tests() {
         learned.find(
             "learned memory works.") !=
         std::string::npos);
+
+    std::cout << "[self-test] checkpoint continuation" << std::endl;
 
     // Critical regression test:
     // two uninterrupted epochs must match one epoch + checkpoint + one epoch.
