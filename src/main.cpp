@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
                 std::cout
                     << "Using default ULTRON checkpoint: "
                     << default_checkpoint
-                    << '\\n';
+                    << '\n';
             }
         }
 
