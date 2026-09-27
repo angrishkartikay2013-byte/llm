@@ -30,7 +30,8 @@ public:
             std::size_t,
             float)>& progress = {},
         std::size_t speed = 1,
-        const std::string& checkpoint_path = {});
+        const std::string& checkpoint_path = {},
+        bool enable_training_controls = true);
 
     ModelEvaluation evaluate(
         const std::string& text) const;
