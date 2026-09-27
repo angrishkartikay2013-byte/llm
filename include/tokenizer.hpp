@@ -28,7 +28,7 @@ private:
         0x554c54524f4e4252ULL; // "ULTRONBR"
     static constexpr std::uint64_t kFormatVersion = 3;
     static constexpr std::size_t kByteVocabularySize = 256;
-    static constexpr std::size_t kMaxMerges = 512;
+    static constexpr std::size_t kMaxMerges = 2048;
 
     static std::vector<std::string> legacy_split(
         const std::string& text,
