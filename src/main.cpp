@@ -192,7 +192,7 @@ int main(int argc, char** argv) {
             options.eval_file.empty() &&
             options.interactive) {
             const std::string default_checkpoint =
-                "models/ultron_ultrachat_control.bin";
+                "models/ultron_big.bin";
             std::ifstream checkpoint_probe(
                 default_checkpoint,
                 std::ios::binary);
