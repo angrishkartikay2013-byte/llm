@@ -2,7 +2,7 @@ param(
     [string]$Data = "data/train.txt",
     [int]$Epochs = 20,
     [double]$LearningRate = 0.001,
-    [string]$Checkpoint = "models/ultron_bpe.bin",
+    [string]$Checkpoint = "models/ultron_big.bin",
     [string]$ValidationData = "data/validation.txt",
     [int]$SaveEvery = 10,
     [int]$Speed = 0,
