@@ -1429,6 +1429,14 @@ float ULTRONModel::train(
                 transformer2_parameters.size(),
                 0.0f);
 
+            std::vector<float> transformer3_gradients(
+                transformer3_parameters.size(),
+                0.0f);
+
+            std::vector<float> transformer4_gradients(
+                transformer4_parameters.size(),
+                0.0f);
+
             std::vector<float> embedding_gradients(
                 embedding_parameters.size(),
                 0.0f);
@@ -1469,6 +1477,22 @@ float ULTRONModel::train(
                 }
 
                 for (std::size_t parameter = 0;
+                     parameter < transformer3_gradients.size();
+                     ++parameter) {
+
+                    transformer3_gradients[parameter] +=
+                        result.transformer3_gradients[parameter];
+                }
+
+                for (std::size_t parameter = 0;
+                     parameter < transformer4_gradients.size();
+                     ++parameter) {
+
+                    transformer4_gradients[parameter] +=
+                        result.transformer4_gradients[parameter];
+                }
+
+                for (std::size_t parameter = 0;
                      parameter < embedding_gradients.size();
                      ++parameter) {
 
@@ -1501,6 +1525,14 @@ float ULTRONModel::train(
                 inverse_samples);
 
             scale_in_place(
+                transformer3_gradients,
+                inverse_samples);
+
+            scale_in_place(
+                transformer4_gradients,
+                inverse_samples);
+
+            scale_in_place(
                 embedding_gradients,
                 inverse_samples);
 
@@ -1514,6 +1546,14 @@ float ULTRONModel::train(
 
             clip_gradients(
                 transformer2_gradients,
+                5.0f);
+
+            clip_gradients(
+                transformer3_gradients,
+                5.0f);
+
+            clip_gradients(
+                transformer4_gradients,
                 5.0f);
 
             clip_gradients(
@@ -1532,6 +1572,14 @@ float ULTRONModel::train(
                 transformer2_parameters,
                 transformer2_gradients);
 
+            impl_->transformer3_optimizer->step(
+                transformer3_parameters,
+                transformer3_gradients);
+
+            impl_->transformer4_optimizer->step(
+                transformer4_parameters,
+                transformer4_gradients);
+
             impl_->embedding_optimizer->step(
                 embedding_parameters,
                 embedding_gradients);
@@ -1541,6 +1589,12 @@ float ULTRONModel::train(
 
             impl_->transformer2.set_parameters(
                 transformer2_parameters);
+
+            impl_->transformer3.set_parameters(
+                transformer3_parameters);
+
+            impl_->transformer4.set_parameters(
+                transformer4_parameters);
 
             impl_->embedding.set_parameters(
                 embedding_parameters);
