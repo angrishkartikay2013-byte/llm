@@ -944,6 +944,7 @@ void TransformerBlock::backward(
                             embeddings[i],
                             value_weight_);
                 }
+                }
                 catch (...) {
                     capture_transformer_worker_exception(
                         backward_worker_error,
