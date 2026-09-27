@@ -1024,17 +1024,56 @@ float ULTRONModel::train(
                     ? tokens.size() - speed_config.sequence_length
                     : tokens.size() - 2;
 
-            std::uniform_int_distribution<std::size_t> start_distribution(
-                0,
-                max_start);
+            const std::size_t possible_starts =
+                max_start + 1;
 
-            window_starts.reserve(sampled_window_count);
+            const std::size_t sample_count =
+                std::min(
+                    sampled_window_count,
+                    possible_starts);
+
+            std::uniform_int_distribution<std::size_t> offset_distribution(
+                0,
+                possible_starts - 1);
+
+            std::size_t start =
+                offset_distribution(window_generator);
+
+            std::size_t step =
+                window_step % possible_starts;
+
+            if (step == 0) {
+                step = 1;
+            }
+
+            const auto gcd =
+                [](std::size_t a, std::size_t b) {
+                    while (b != 0) {
+                        const std::size_t remainder = a % b;
+                        a = b;
+                        b = remainder;
+                    }
+                    return a;
+                };
+
+            while (gcd(step, possible_starts) != 1) {
+                ++step;
+                if (step >= possible_starts) {
+                    step = 1;
+                }
+            }
+
+            window_starts.reserve(sample_count);
 
             for (std::size_t sample = 0;
-                 sample < sampled_window_count;
+                 sample < sample_count;
                  ++sample) {
-                window_starts.push_back(
-                    start_distribution(window_generator));
+                window_starts.push_back(start);
+
+                start += step;
+                if (start >= possible_starts) {
+                    start -= possible_starts;
+                }
             }
         } else {
             for (std::size_t start = 0;
