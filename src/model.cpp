@@ -477,16 +477,23 @@ public:
             for (std::size_t dimension = 0;
                  dimension < kEmbeddingSize;
                  ++dimension) {
+                const std::size_t pair_index =
+                    dimension / 2;
+
                 const float exponent =
-                    static_cast<float>(dimension) /
+                    static_cast<float>(2 * pair_index) /
                     static_cast<float>(kEmbeddingSize);
 
+                const float angle =
+                    static_cast<float>(position) /
+                    std::pow(
+                        10000.0f,
+                        exponent);
+
                 positional[position][dimension] =
-                    std::sin(
-                        static_cast<float>(position) /
-                        std::pow(
-                            10000.0f,
-                            exponent));
+                    (dimension % 2 == 0)
+                        ? std::sin(angle)
+                        : std::cos(angle);
             }
         }
     }
