@@ -439,6 +439,8 @@ public:
           embedding(1, kEmbeddingSize),
           transformer(kEmbeddingSize, kHeads, kFeedForwardSize, 11),
           transformer2(kEmbeddingSize, kHeads, kFeedForwardSize, 101),
+          transformer3(kEmbeddingSize, kHeads, kFeedForwardSize, 191),
+          transformer4(kEmbeddingSize, kHeads, kFeedForwardSize, 281),
           output_weights(),
           positional(
               kMaxSequenceLength,
@@ -609,9 +611,9 @@ public:
         }
 
         auto hidden = transformer.forward(states);
-        for (std::size_t layer = 1; layer < kTransformerLayers; ++layer) {
-            hidden = transformer2.forward(hidden);
-        }
+        hidden = transformer2.forward(hidden);
+        hidden = transformer3.forward(hidden);
+        hidden = transformer4.forward(hidden);
         return hidden;
     }
 
@@ -756,6 +758,8 @@ public:
     Embedding embedding;
     TransformerBlock transformer;
     TransformerBlock transformer2;
+    TransformerBlock transformer3;
+    TransformerBlock transformer4;
     std::vector<std::vector<float>> output_weights;
     std::vector<std::vector<float>> positional;
     std::unordered_map<std::string, std::string> learned_answers;
@@ -763,6 +767,8 @@ public:
     std::unique_ptr<AdamOptimizer> output_optimizer;
     std::unique_ptr<AdamOptimizer> transformer_optimizer;
     std::unique_ptr<AdamOptimizer> transformer2_optimizer;
+    std::unique_ptr<AdamOptimizer> transformer3_optimizer;
+    std::unique_ptr<AdamOptimizer> transformer4_optimizer;
     std::unique_ptr<AdamOptimizer> embedding_optimizer;
 };
 
