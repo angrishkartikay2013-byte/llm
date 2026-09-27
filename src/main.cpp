@@ -21,9 +21,9 @@ struct Options {
     std::string save_file;
     std::size_t epochs = 1;
     float learning_rate = 0.001f;
-    std::size_t max_new_tokens = 16;
-    float temperature = 0.8f;
-    std::size_t top_k = 8;
+    std::size_t max_new_tokens = 32;
+    float temperature = 0.7f;
+    std::size_t top_k = 20;
     unsigned int seed = 42;
     std::size_t save_every = 0;
     std::size_t speed = 1;
