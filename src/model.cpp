@@ -949,47 +949,54 @@ float ULTRONModel::train(
             1,
             speed_config.window_stride);
 
-    // Build the context-window starts fresh for each epoch. The high-speed
-    // modes intentionally sample fewer windows than dense training, so those
-    // windows must move around the corpus rather than revisiting the same
-    // fixed positions on every epoch. We keep the same number of windows for
-    // roughly the same runtime, but choose fresh random starting positions so
-    // repeated epochs expose the model to different parts of the corpus.
-    const std::size_t sampled_window_count =
-        std::max<std::size_t>(
-            1,
-            ((tokens.size() - 2) / window_step) + 1);
-
-    std::random_device random_device;
-    const unsigned int run_seed =
-        (static_cast<unsigned int>(random_device()) << 1) ^
-        static_cast<unsigned int>(random_device());
-
+    // Build the context-window starts for each epoch. Dense modes keep
+    // deterministic full-corpus coverage. The sparse high-speed modes use
+    // the same approximate number of windows but sample new positions each
+    // epoch so they do not revisit one fixed sparse slice forever.
     for (std::size_t epoch = 0;
          epoch < epochs;
          ++epoch) {
 
-        std::mt19937 window_generator(
-            run_seed ^
-            (1337U +
-             static_cast<unsigned int>(epoch)));
-
-        std::uniform_int_distribution<std::size_t> start_distribution(
-            0,
-            tokens.size() - 2);
-
         std::vector<std::size_t> window_starts;
-        window_starts.reserve(sampled_window_count);
 
-        for (std::size_t sample = 0;
-             sample < sampled_window_count;
-             ++sample) {
-            window_starts.push_back(
-                start_distribution(window_generator));
+        if (speed >= 9) {
+            const std::size_t sampled_window_count =
+                std::max<std::size_t>(
+                    1,
+                    ((tokens.size() - 2) / window_step) + 1);
+
+            // Deterministic per-epoch randomness keeps runs reproducible while
+            // still changing sparse coverage from one epoch to the next.
+            std::mt19937 window_generator(
+                1337U +
+                static_cast<unsigned int>(epoch));
+
+            std::uniform_int_distribution<std::size_t> start_distribution(
+                0,
+                tokens.size() - 2);
+
+            window_starts.reserve(sampled_window_count);
+
+            for (std::size_t sample = 0;
+                 sample < sampled_window_count;
+                 ++sample) {
+                window_starts.push_back(
+                    start_distribution(window_generator));
+            }
+        } else {
+            for (std::size_t start = 0;
+                 start + 1 < tokens.size();
+                 start += window_step) {
+                window_starts.push_back(start);
+            }
         }
 
-        // Shuffle sampled windows for this epoch so optimizer updates do not
-        // follow any accidental corpus ordering pattern.
+        if (window_starts.empty()) {
+            return 0.0f;
+        }
+
+        // Shuffle window order each epoch so the optimizer does not always
+        // see the corpus in the same sequence.
         std::mt19937 shuffle_generator(
             1337U +
             static_cast<unsigned int>(epoch));
