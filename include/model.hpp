@@ -29,7 +29,8 @@ public:
         const std::function<void(
             std::size_t,
             float)>& progress = {},
-        std::size_t speed = 1);
+        std::size_t speed = 1,
+        const std::string& checkpoint_path = {});
 
     ModelEvaluation evaluate(
         const std::string& text) const;
@@ -43,6 +44,10 @@ public:
 
     bool save_checkpoint(const std::string& path) const;
     bool load_checkpoint(const std::string& path);
+
+    // True when Ctrl+T requested a safe stop followed by interactive testing.
+    // The flag is reset at the start of each training call.
+    bool training_test_requested() const;
 
 private:
     class Impl;
