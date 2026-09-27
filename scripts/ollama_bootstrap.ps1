@@ -5,7 +5,7 @@ param(
     [int]$Epochs = 1,
     [double]$LearningRate = 0.001,
     [string]$Output = "data/external/ollama_distill.txt",
-    [string]$Checkpoint = "models/ultron_bpe.bin",
+    [string]$Checkpoint = "models/ultron_big.bin",
     [switch]$Fresh
 )
 
