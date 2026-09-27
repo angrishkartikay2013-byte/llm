@@ -13,7 +13,7 @@ struct ModelConfig {
     float learning_rate = 0.001f;
     float temperature = 0.7f;
     std::size_t top_k = 20;
-    std::size_t max_new_tokens = 16;
+    std::size_t max_new_tokens = 32;
     unsigned int seed = 42;
 
     bool validate(std::string& error) const;
