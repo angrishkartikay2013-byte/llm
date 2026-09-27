@@ -647,16 +647,28 @@ std::vector<std::vector<float>> TransformerBlock::forward(
                                     scores[key]);
                         }
 
+                        if (!std::isfinite(max_score)) {
+                            throw std::runtime_error(
+                                "Attention produced a non-finite score");
+                        }
+
                         float sum = 0.0f;
 
                         for (float& score : scores) {
                             score =
                                 std::exp(
                                     score - max_score);
+
+                            if (!std::isfinite(score)) {
+                                throw std::runtime_error(
+                                    "Attention softmax produced a non-finite weight");
+                            }
+
                             sum += score;
                         }
 
-                        if (sum <= 0.0f) {
+                        if (!std::isfinite(sum) ||
+                            sum <= std::numeric_limits<float>::epsilon()) {
                             throw std::runtime_error(
                                 "Attention softmax normalization failed");
                         }
@@ -987,13 +999,30 @@ void TransformerBlock::backward(
                         scores[key]);
             }
 
+            if (!std::isfinite(max_score)) {
+                throw std::runtime_error(
+                    "Backward attention produced a non-finite score");
+            }
+
             float sum = 0.0f;
 
             for (float& score : scores) {
                 score =
                     std::exp(
                         score - max_score);
+
+                if (!std::isfinite(score)) {
+                    throw std::runtime_error(
+                        "Backward attention softmax produced a non-finite weight");
+                }
+
                 sum += score;
+            }
+
+            if (!std::isfinite(sum) ||
+                sum <= std::numeric_limits<float>::epsilon()) {
+                throw std::runtime_error(
+                    "Backward attention softmax normalization failed");
             }
 
             attention_weights[query][head].resize(
