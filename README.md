@@ -25,7 +25,7 @@ The current default "Big" model uses:
 - sinusoidal positional information
 - full backpropagation through attention, LayerNorm, GELU, residual paths, all four Transformer blocks, and embeddings
 - Adam optimization with gradient clipping
-- approximately 1.4M trainable parameters with the 2048-merge BPE vocabulary
+- approximately 1.0M trainable parameters with the 512-merge BPE vocabulary
 
 This is intentionally small enough to run CPU-only, but it is also far smaller than production LLMs. Training quality is therefore strongly dependent on tokenizer quality, corpus quality, optimization, and model capacity.
 
