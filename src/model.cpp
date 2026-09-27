@@ -856,6 +856,14 @@ float ULTRONModel::train(
     impl_->transformer2.get_parameters(
         transformer2_parameters);
 
+    std::vector<float> transformer3_parameters;
+    impl_->transformer3.get_parameters(
+        transformer3_parameters);
+
+    std::vector<float> transformer4_parameters;
+    impl_->transformer4.get_parameters(
+        transformer4_parameters);
+
     std::vector<float> embedding_parameters;
     impl_->embedding.get_parameters(
         embedding_parameters);
@@ -893,6 +901,30 @@ float ULTRONModel::train(
                 learning_rate * 0.5f);
     } else {
         impl_->transformer2_optimizer->set_learning_rate(
+            learning_rate * 0.5f);
+    }
+
+    if (!impl_->transformer3_optimizer ||
+        impl_->transformer3_optimizer->parameter_count() !=
+            transformer3_parameters.size()) {
+        impl_->transformer3_optimizer =
+            std::make_unique<AdamOptimizer>(
+                transformer3_parameters.size(),
+                learning_rate * 0.5f);
+    } else {
+        impl_->transformer3_optimizer->set_learning_rate(
+            learning_rate * 0.5f);
+    }
+
+    if (!impl_->transformer4_optimizer ||
+        impl_->transformer4_optimizer->parameter_count() !=
+            transformer4_parameters.size()) {
+        impl_->transformer4_optimizer =
+            std::make_unique<AdamOptimizer>(
+                transformer4_parameters.size(),
+                learning_rate * 0.5f);
+    } else {
+        impl_->transformer4_optimizer->set_learning_rate(
             learning_rate * 0.5f);
     }
 
