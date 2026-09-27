@@ -51,7 +51,7 @@ Because token IDs and model weights depend on the tokenizer, **build a fresh che
 
 From the repository root:
 
-    cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
     cmake --build build
     ctest --test-dir build --output-on-failure
 
