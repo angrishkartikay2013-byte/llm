@@ -1003,7 +1003,7 @@ float ULTRONModel::train(
         // checkpoint/restore continuation choose the same next epoch sequence,
         // while also preventing repeated sampling patterns across restarts.
         const std::size_t epoch_step =
-            output_optimizer->step_count();
+            impl_->output_optimizer->step_count();
         const unsigned int epoch_seed =
             1337U ^
             static_cast<unsigned int>(epoch_step) ^
