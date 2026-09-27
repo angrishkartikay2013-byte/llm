@@ -289,7 +289,8 @@ int main(int argc, char** argv) {
                     options.learning_rate,
                     checkpoint_progress,
                     options.speed,
-                    options.save_file);
+                    options.save_file,
+                    options.interactive);
 
             hotkey_test_mode =
                 model.training_test_requested();
