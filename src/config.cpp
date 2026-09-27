@@ -1,5 +1,6 @@
 #include "config.hpp"
 
+#include <cmath>
 #include <sstream>
 
 bool ModelConfig::validate(std::string& error) const {
@@ -23,12 +24,14 @@ bool ModelConfig::validate(std::string& error) const {
         error = "max_sequence_length must be greater than zero";
         return false;
     }
-    if (learning_rate <= 0.0f) {
-        error = "learning_rate must be positive";
+    if (!std::isfinite(learning_rate) ||
+        learning_rate <= 0.0f) {
+        error = "learning_rate must be finite and positive";
         return false;
     }
-    if (temperature <= 0.0f) {
-        error = "temperature must be positive";
+    if (!std::isfinite(temperature) ||
+        temperature <= 0.0f) {
+        error = "temperature must be finite and positive";
         return false;
     }
     return true;
