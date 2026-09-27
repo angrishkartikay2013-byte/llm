@@ -39,7 +39,6 @@ namespace {
 constexpr std::size_t kEmbeddingSize = 128;
 constexpr std::size_t kHeads = 8;
 constexpr std::size_t kFeedForwardSize = 512;
-constexpr std::size_t kTransformerLayers = 4;
 constexpr std::size_t kMaxSequenceLength = 256;
 
 struct TrainingSpeed {
