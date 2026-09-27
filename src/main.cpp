@@ -209,6 +209,12 @@ int main(int argc, char** argv) {
                     << "Using default ULTRON checkpoint: "
                     << default_checkpoint
                     << '\n';
+            } else {
+                throw std::runtime_error(
+                    "No trained ULTRON Big checkpoint found at " +
+                    default_checkpoint +
+                    ". Train a fresh model first with " +
+                    ".\\scripts\\train_ultrachat_control.ps1 -Fresh -Epochs 5 -Speed 3");
             }
         }
 
