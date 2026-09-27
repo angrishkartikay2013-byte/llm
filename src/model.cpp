@@ -763,8 +763,9 @@ float ULTRONModel::train(
         return 0.0f;
     }
 
-    // Corpus training should update the neural model only. Exact question/
-    // answer associations are reserved for live/interactive teaching calls,
+    // Corpus training should update the neural model only. Exact
+    // question-answer associations are reserved for live/interactive
+    // teaching calls,
     // which intentionally omit a checkpoint path.
     if (checkpoint_path.empty()) {
         impl_->learn_associations(text);
