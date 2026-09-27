@@ -52,7 +52,11 @@ if (!(Test-Path $englishPath)) {
 }
 
 if (!(Test-Path $checkpointPath)) {
-    throw "Checkpoint not found: $Checkpoint. Train ULTRON first, or use -Fresh to intentionally start from a new English-trained model."
+    if ($Fresh) {
+        Write-Host "No checkpoint exists; creating a fresh English-trained model from the mixed corpus."
+    } else {
+        throw "Checkpoint not found: $Checkpoint. Train ULTRON first, or use -Fresh to intentionally start from a new English-trained model."
+    }
 }
 
 function Get-TextSample {
@@ -162,7 +166,6 @@ Write-Host "No hard-coded answers are added; language is learned from data."
 Write-Host ""
 
 $args = @(
-    "--load", $Checkpoint,
     "--train", $mixedPath,
     "--epochs", $Epochs,
     "--lr", $LearningRate,
