@@ -2656,6 +2656,18 @@ bool ULTRONModel::save_checkpoint(
 
     std::error_code error;
 
+    const fs::path parent =
+        destination.parent_path();
+
+    if (!parent.empty()) {
+        fs::create_directories(
+            parent,
+            error);
+        if (error) {
+            return false;
+        }
+    }
+
     fs::remove(temporary, error);
 
     std::ofstream output(
@@ -2674,6 +2686,8 @@ bool ULTRONModel::save_checkpoint(
         !impl_->transformer2.save(output) ||
         !impl_->transformer3.save(output) ||
         !impl_->transformer4.save(output)) {
+        output.close();
+        fs::remove(temporary, error);
         return false;
     }
 
@@ -2685,6 +2699,8 @@ bool ULTRONModel::save_checkpoint(
             output,
             static_cast<std::uint64_t>(
                 kEmbeddingSize))) {
+        output.close();
+        fs::remove(temporary, error);
         return false;
     }
 
