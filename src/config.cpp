@@ -15,6 +15,10 @@ bool ModelConfig::validate(std::string& error) const {
         error = "feed_forward_size must be greater than zero";
         return false;
     }
+    if (transformer_layers == 0) {
+        error = "transformer_layers must be greater than zero";
+        return false;
+    }
     if (max_sequence_length == 0) {
         error = "max_sequence_length must be greater than zero";
         return false;
