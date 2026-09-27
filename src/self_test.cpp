@@ -203,6 +203,16 @@ int run_ultron_smoke_tests() {
             optimizer.learning_rate()) <
         1e-8f);
 
+    // Invalid Transformer configurations must fail before any
+    // divide-by-zero or invalid allocation can occur.
+    bool invalid_transformer_threw = false;
+    try {
+        TransformerBlock invalid(8, 0, 16);
+    } catch (const std::invalid_argument&) {
+        invalid_transformer_threw = true;
+    }
+    assert(invalid_transformer_threw);
+
     // Transformer forward/backward and finite gradients.
     TransformerBlock transformer(8, 2, 16);
     const std::vector<std::vector<float>> inputs(
