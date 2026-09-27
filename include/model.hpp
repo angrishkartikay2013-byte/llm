@@ -37,9 +37,9 @@ public:
 
     std::string generate(
         const std::string& prompt,
-        std::size_t max_new_tokens = 1,
-        float temperature = 0.8f,
-        std::size_t top_k = 8,
+        std::size_t max_new_tokens = 16,
+        float temperature = 0.7f,
+        std::size_t top_k = 20,
         unsigned int seed = 42) const;
 
     bool save_checkpoint(const std::string& path) const;
