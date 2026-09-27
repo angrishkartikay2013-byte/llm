@@ -55,9 +55,9 @@ TrainingSpeed training_speed(std::size_t speed) {
         case 5: return {48, 1};
         case 6: return {32, 1};
         case 7: return {32, 2};
-        case 8: return {24, 2};
-        case 9: return {16, 3};
-        default: return {12, 4};
+        case 8: return {24, 4};
+        case 9: return {16, 6};
+        default: return {16, 8};
     }
 }
 
@@ -983,6 +983,11 @@ float ULTRONModel::train(
             window_starts.size();
 
         std::size_t window_number = 0;
+        const auto epoch_started_at =
+            std::chrono::steady_clock::now();
+        auto last_report_at = epoch_started_at;
+        std::size_t last_report_windows = 0;
+        std::size_t last_report_samples = 0;
 
         struct WindowTrainingResult {
             bool valid = false;
@@ -1481,10 +1486,17 @@ float ULTRONModel::train(
                 }
             }
 
+            const auto now =
+                std::chrono::steady_clock::now();
+            const double elapsed_seconds =
+                std::chrono::duration<double>(
+                    now - epoch_started_at).count();
+            const double report_interval_seconds =
+                std::chrono::duration<double>(
+                    now - last_report_at).count();
+
             if (window_number == total_windows ||
-                window_number % std::max<std::size_t>(
-                    1,
-                    windows_per_batch) == 0) {
+                report_interval_seconds >= 1.0) {
 
                 const double running_loss =
                     epoch_samples == 0
@@ -1502,27 +1514,86 @@ float ULTRONModel::train(
                            static_cast<double>(
                                total_windows));
 
+                const double windows_per_second =
+                    elapsed_seconds <= 0.0
+                        ? 0.0
+                        : static_cast<double>(
+                              window_number) /
+                          elapsed_seconds;
+
+                const double samples_per_second =
+                    elapsed_seconds <= 0.0
+                        ? 0.0
+                        : static_cast<double>(
+                              epoch_samples) /
+                          elapsed_seconds;
+
+                const std::size_t remaining_windows =
+                    total_windows > window_number
+                        ? total_windows - window_number
+                        : 0;
+
+                const double eta_seconds =
+                    windows_per_second > 0.0
+                        ? static_cast<double>(
+                              remaining_windows) /
+                          windows_per_second
+                        : 0.0;
+
+                const double interval_windows =
+                    static_cast<double>(
+                        window_number -
+                        last_report_windows);
+
+                const double interval_samples =
+                    static_cast<double>(
+                        epoch_samples -
+                        last_report_samples);
+
+                const double interval_windows_per_second =
+                    report_interval_seconds <= 0.0
+                        ? 0.0
+                        : interval_windows /
+                          report_interval_seconds;
+
+                const double interval_samples_per_second =
+                    report_interval_seconds <= 0.0
+                        ? 0.0
+                        : interval_samples /
+                          report_interval_seconds;
+
                 std::cout
                     << "[train] epoch "
                     << (epoch + 1)
                     << "/"
                     << epochs
-                    << " | window "
+                    << " | "
+                    << static_cast<int>(percent)
+                    << "% | windows "
                     << window_number
                     << "/"
                     << total_windows
-                    << " | "
-                    << static_cast<int>(
-                           percent)
-                    << "% | samples "
+                    << " | samples "
                     << epoch_samples
                     << " | loss "
                     << running_loss
-                    << " | CPU batch workers "
+                    << " | "
+                    << interval_windows_per_second
+                    << " win/s | "
+                    << interval_samples_per_second
+                    << " samples/s | elapsed "
+                    << elapsed_seconds
+                    << "s | ETA "
+                    << eta_seconds
+                    << "s | workers "
                     << batch_size
                     << '\n';
 
                 std::cout.flush();
+
+                last_report_at = now;
+                last_report_windows = window_number;
+                last_report_samples = epoch_samples;
             }
 
             if (g_training_test_requested.load(
