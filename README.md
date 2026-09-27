@@ -8,23 +8,24 @@ ULTRON is a CPU-oriented **Large Language Model engine built from scratch in C++
 - **LLM** is the neural language model being built here.
 - **Chatbot** is the application layer that lets you talk to the model.
 
-ULTRON is therefore a small locally trained **LLM used as a conversational AI chatbot**.
+ULTRON is a locally trained **CPU-oriented causal Transformer used as a conversational AI chatbot**. The repository now targets a larger CPU-friendly model configuration rather than the earlier tiny experiment.
 
 The model does not call ChatGPT or Qwen during normal inference. Ollama is an optional local teacher/data generator; ULTRON remains the student model.
 
 ## Current model
 
-The core model currently uses:
+The current default "Big" model uses:
 
-- 32-dimensional token embeddings
-- 4 attention heads
-- 2 causal Transformer blocks
-- 128-dimensional feed-forward layers
+- 128-dimensional token embeddings
+- 8 attention heads
+- 4 causal Transformer blocks
+- 512-dimensional feed-forward layers
 - 256-token maximum context
 - learned token embeddings and output projection
 - sinusoidal positional information
-- full backpropagation through attention, LayerNorm, GELU, residual paths, both Transformer blocks, and embeddings
+- full backpropagation through attention, LayerNorm, GELU, residual paths, all four Transformer blocks, and embeddings
 - Adam optimization with gradient clipping
+- approximately 1.4M trainable parameters with the 2048-merge BPE vocabulary
 
 This is intentionally small enough to run CPU-only, but it is also far smaller than production LLMs. Training quality is therefore strongly dependent on tokenizer quality, corpus quality, optimization, and model capacity.
 
@@ -40,7 +41,7 @@ Important properties:
 - Unseen words do not collapse to one <unk> token; they fall back to byte/subword pieces.
 - BPE merges are frozen after the first tokenizer build so later lessons cannot silently renumber token IDs.
 - BPE merges never cross word, whitespace, punctuation, or newline boundaries.
-- Learned tokens are capped at 16 bytes to reduce tiny-model memorization of long corpus-specific phrases.
+- Learned tokens are capped at 12 bytes to reduce tiny-model memorization of long corpus-specific phrases.
 - Tokenizer checkpoints include the learned merge table.
 - Legacy word-tokenizer checkpoints remain readable for compatibility.
 
@@ -60,11 +61,11 @@ The smoke tests now cover tensor math, boundary-aware BPE round-tripping, tokeni
 
 The repository now ships a language-focused training corpus plus a held-out validation corpus. The training corpus contains explicit lessons for spacing, punctuation, dialogue turns, paragraph structure, reasoning language, commands, formal/casual tone, numbers, and natural narration.
 
-The safest first experiment after a tokenizer/model upgrade is:
+The safest first experiment after the current architecture/tokenizer upgrade is:
 
-    .\scripts\train.ps1 -Fresh -Epochs 20 -SaveEvery 10
+    .\scripts\train_ultrachat_control.ps1 -Fresh -Epochs 5 -Speed 3
 
-The script uses models/ultron_bpe.bin by default so an older models/ultron.bin checkpoint cannot accidentally become the starting point.
+The UltraChat control trainer uses models/ultron_big.bin by default. The older small-model checkpoints are intentionally left untouched and are not compatible with the new Big checkpoint format.
 
 It also evaluates the saved checkpoint automatically after training on both the training corpus and the held-out validation corpus and reports:
 
@@ -86,7 +87,7 @@ Direct CLI continuation is explicit:
 
 The PowerShell training script now resumes automatically when its checkpoint already exists:
 
-    .\scripts\train.ps1 -Epochs 20 -SaveEvery 10
+    .\scripts\train.ps1 -Epochs 5 -SaveEvery 1
 
 Use:
 
@@ -108,11 +109,11 @@ This specifically guards against the common mistake of thinking a run is continu
 
 For a clean inference test that does not train on the model's own answers:
 
-    .\build\ultron.exe --load models\ultron_bpe.bin --max-tokens 30 --temperature 0.7 --top-k 5 --no-online-learning
+    .\build\ultron.exe --load models\ultron_big.bin --max-tokens 30 --temperature 0.7 --top-k 20 --no-online-learning --no-history
 
 For a deterministic regression-style sample:
 
-    .\build\ultron.exe --load models\ultron_bpe.bin --max-tokens 30 --temperature 0.2 --top-k 1 --no-online-learning
+    .\build\ultron.exe --load models\ultron_big.bin --max-tokens 30 --temperature 0.2 --top-k 1 --no-online-learning --no-history
 
 ## Training hotkeys
 
@@ -127,9 +128,11 @@ The hotkeys are handled by the C++ trainer itself, so they work from the normal 
 
 ## Conversation learning
 
-Interactive mode keeps recent conversation context in:
+Interactive mode persists recent conversation context in:
 
     data/conversations.txt
+
+Persisted history is **opt-in** for inference. Use --history when you deliberately want previous turns included; clean model tests use --no-history so old generated text cannot contaminate a new generation.
 
 Explicit teaching is supported:
 
@@ -157,7 +160,7 @@ ULTRON can strengthen general English language patterns without hard-coding resp
 
     .\scripts\train_english.ps1 -Epochs 3 -Speed 3
 
-By default it continues models/ultron_ultrachat_control.bin. Use -Fresh only when intentionally starting a new checkpoint. Ctrl+U and Ctrl+T remain available during this training as well.
+By default it continues models/ultron_big.bin. Use -Fresh only when intentionally starting a new checkpoint. Ctrl+U and Ctrl+T remain available during this training as well.
 
 This changes the weights through training data; it does not add canned answers or keyword-response rules.
 
@@ -181,7 +184,7 @@ One-shot bootstrap:
 
     .\scripts\ollama_bootstrap.ps1 -Model "qwen3:8b" -Epochs 1
 
-The bootstrap now resumes models/ultron_bpe.bin by default. Use -Fresh for an intentional reset.
+The bootstrap now resumes the configured local checkpoint by default; for the current Big model use models/ultron_big.bin. Use -Fresh for an intentional reset.
 
 Cumulative replay teacher:
 
@@ -257,7 +260,7 @@ For a faster smoke experiment:
 
 ### Why this is a control experiment
 
-The model architecture, C++ trainer, tokenizer implementation, optimizer, checkpoint format, and generation code remain unchanged. The controlled change is the corpus.
+The model architecture, C++ trainer, tokenizer implementation, optimizer, checkpoint format, and generation code are kept fixed during a control experiment. The controlled change is the corpus.
 
 The downloader converts complete exchanges into USER and ULTRON turns and keeps a separate held-out test corpus.
 
