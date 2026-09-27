@@ -236,6 +236,14 @@ private:
 
 ConsoleLineReader g_console_input;
 
+void ultron_start_console_input() {
+    g_console_input.start();
+}
+
+bool ultron_read_console_line(std::string& line) {
+    return g_console_input.wait_pop(line);
+}
+
 TrainingHotkeyAction poll_training_hotkey() {
     std::string line;
 
