@@ -17,15 +17,33 @@ std::vector<float> Attention::softmax(
     const float max_value =
         *std::max_element(scores.begin(), scores.end());
 
+    if (!std::isfinite(max_value)) {
+        throw std::runtime_error(
+            "Attention softmax received non-finite scores");
+    }
+
     std::vector<float> probabilities(scores.size());
     float sum = 0.0f;
 
     for (std::size_t i = 0; i < scores.size(); ++i) {
-        probabilities[i] = std::exp(scores[i] - max_value);
+        if (!std::isfinite(scores[i])) {
+            throw std::runtime_error(
+                "Attention softmax received non-finite scores");
+        }
+
+        probabilities[i] =
+            std::exp(scores[i] - max_value);
+
+        if (!std::isfinite(probabilities[i])) {
+            throw std::runtime_error(
+                "Attention softmax produced non-finite probability");
+        }
+
         sum += probabilities[i];
     }
 
-    if (sum <= std::numeric_limits<float>::epsilon()) {
+    if (!std::isfinite(sum) ||
+        sum <= std::numeric_limits<float>::epsilon()) {
         throw std::runtime_error("Softmax produced an invalid normalization");
     }
 
