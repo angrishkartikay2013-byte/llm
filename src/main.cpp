@@ -181,6 +181,7 @@ int main(int argc, char** argv) {
         ULTRONModel model;
         ConversationStore conversations;
         DictionaryClient dictionary;
+        bool hotkey_test_mode = false;
 
         // Interactive ULTRON should use the most recently trained model by default.
         // The checkpoint contains the tokenizer, embeddings, transformer weights,
@@ -275,14 +276,27 @@ int main(int argc, char** argv) {
                     options.epochs,
                     options.learning_rate,
                     checkpoint_progress,
-                    options.speed);
+                    options.speed,
+                    options.save_file);
 
-            std::cout
-                << "Training complete. Mean loss: "
-                << loss
-                << '\n';
+            hotkey_test_mode =
+                model.training_test_requested();
 
-            if (!options.save_file.empty()) {
+            if (hotkey_test_mode) {
+                std::cout
+                    << "[HOTKEY] Ctrl+T requested a safe stop. "
+                    << "Launching ULTRON test mode."
+                    << '\n';
+                std::cout.flush();
+                options.interactive = true;
+            } else {
+                std::cout
+                    << "Training complete. Mean loss: "
+                    << loss
+                    << '\n';
+            }
+
+            if (!options.save_file.empty() && !hotkey_test_mode) {
                 if (!model.save_checkpoint(
                         options.save_file)) {
                     std::cerr
@@ -466,7 +480,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        return 0;
+        return hotkey_test_mode ? 10 : 0;
 
     } catch (const std::exception& error) {
         std::cerr
