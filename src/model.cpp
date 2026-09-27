@@ -1905,7 +1905,9 @@ std::string ULTRONModel::generate(
     unsigned int seed) const {
 
     if (max_new_tokens == 0) return prompt;
-    if (temperature <= 0.0f) temperature = 1.0f;
+    if (!std::isfinite(temperature) || temperature <= 0.0f) {
+        temperature = 0.7f;
+    }
 
     const std::string learned_answer =
         impl_->learned_answer_for(prompt);
