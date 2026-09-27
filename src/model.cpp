@@ -1262,7 +1262,7 @@ float ULTRONModel::train(
 
             // Training hotkeys are handled only after a completed optimizer
             // update, so a save always captures a consistent model + optimizer.
-            const hotkey_action = poll_training_hotkey();
+            const TrainingHotkeyAction hotkey_action = poll_training_hotkey();
 
             if (hotkey_action == TrainingHotkeyAction::Save ||
                 hotkey_action == TrainingHotkeyAction::SaveAndTest) {
