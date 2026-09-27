@@ -949,24 +949,30 @@ float ULTRONModel::train(
             1,
             speed_config.window_stride);
 
-    // Build explicit context-window start positions once. Each window is
-    // independent during a worker batch, so the outer worker pool can keep
-    // every logical CPU busy while the main thread performs deterministic
-    // gradient reduction and optimizer updates.
-    std::vector<std::size_t> window_starts;
-    for (std::size_t start = 0;
-         start + 1 < tokens.size();
-         start += window_step) {
-        window_starts.push_back(start);
-    }
-
-    if (window_starts.empty()) {
-        return 0.0f;
-    }
-
+    // Build the context-window starts fresh for each epoch. For the
+    // sparse high-speed modes, rotate the starting offset so consecutive
+    // epochs do not train on exactly the same 255-token-spaced positions.
+    // This preserves the fast mode while gradually covering more of the
+    // corpus across epochs instead of repeatedly hammering one fixed slice.
     for (std::size_t epoch = 0;
          epoch < epochs;
          ++epoch) {
+
+        const std::size_t coverage_offset =
+            (speed >= 9)
+                ? (epoch % window_step)
+                : 0;
+
+        std::vector<std::size_t> window_starts;
+        for (std::size_t start = coverage_offset;
+             start + 1 < tokens.size();
+             start += window_step) {
+            window_starts.push_back(start);
+        }
+
+        if (window_starts.empty()) {
+            return 0.0f;
+        }
 
         // Shuffle window order each epoch so training does not always see
         // the corpus in the same sequence while preserving deterministic
