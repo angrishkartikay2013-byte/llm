@@ -109,15 +109,24 @@ Write-Host " ULTRON TRAINING STARTED"
 Write-Host " Epochs: $Epochs | Learning rate: $LearningRate | Speed: $Speed/10"
 Write-Host " Checkpoint: $Checkpoint"
 Write-Host " Watch for [train] messages below."
+Write-Host " Hotkeys: Ctrl+U = save | Ctrl+T = save + stop + test"
 Write-Host "============================================================"
 Write-Host ""
 
 $trainingStart = Get-Date
 & $exe @arguments
 $trainingEnd = Get-Date
+$trainingExitCode = $LASTEXITCODE
 
-if ($LASTEXITCODE -ne 0) {
-    throw "ULTRON training failed with exit code $LASTEXITCODE."
+if ($trainingExitCode -eq 10) {
+    Write-Host ""
+    Write-Host "Ctrl+T requested a safe stop and ULTRON test mode was completed."
+    Write-Host "The saved checkpoint is preserved. Skipping post-training evaluation."
+    exit 0
+}
+
+if ($trainingExitCode -ne 0) {
+    throw "ULTRON training failed with exit code $trainingExitCode."
 }
 
 $trainingDuration = $trainingEnd - $trainingStart
