@@ -123,6 +123,17 @@ int run_ultron_smoke_tests() {
         tokenizer.decode(layout_tokens) ==
         layout_text);
 
+    // Byte-level BPE must preserve UTF-8 text exactly, including multi-byte
+    // characters and mixed scripts.
+    const std::string unicode_text =
+        "café — नमस्ते — ULTRON 🚀";
+    const auto unicode_tokens =
+        tokenizer.encode(unicode_text);
+    require(!unicode_tokens.empty());
+    require(
+        tokenizer.decode(unicode_tokens) ==
+        unicode_text);
+
     require(
         tokenizer.encode("hello world").size() >= 3);
 
