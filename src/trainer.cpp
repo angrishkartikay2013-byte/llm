@@ -39,15 +39,29 @@ void ultron_softmax_into(
     const float max_logit =
         *std::max_element(logits.begin(), logits.end());
 
+    if (!std::isfinite(max_logit)) {
+        throw std::runtime_error("Softmax received a non-finite logit");
+    }
+
     float total = 0.0f;
 
     for (std::size_t i = 0; i < logits.size(); ++i) {
+        if (!std::isfinite(logits[i])) {
+            throw std::runtime_error("Softmax received a non-finite logit");
+        }
+
         probabilities[i] =
             std::exp(logits[i] - max_logit);
+
+        if (!std::isfinite(probabilities[i])) {
+            throw std::runtime_error("Softmax produced a non-finite probability");
+        }
+
         total += probabilities[i];
     }
 
-    if (total <= std::numeric_limits<float>::epsilon()) {
+    if (!std::isfinite(total) ||
+        total <= std::numeric_limits<float>::epsilon()) {
         throw std::runtime_error("Softmax normalization failed");
     }
 
@@ -65,6 +79,10 @@ float ultron_cross_entropy_loss(
     }
 
     constexpr float epsilon = 1e-8f;
+
+    if (!std::isfinite(probabilities[target])) {
+        throw std::runtime_error("Cross-entropy received a non-finite probability");
+    }
 
     return -std::log(
         std::max(probabilities[target], epsilon));
