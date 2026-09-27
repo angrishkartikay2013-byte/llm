@@ -32,6 +32,10 @@ add_executable(ultron
 )
 target_include_directories(ultron PRIVATE include)
 
+if (WIN32)
+    target_link_libraries(ultron PRIVATE user32)
+endif()
+
 include(CheckIPOSupported)
 check_ipo_supported(
     RESULT ULTRON_IPO_SUPPORTED
@@ -67,4 +71,7 @@ if (ULTRON_BUILD_BENCHMARK)
         ${ULTRON_CORE_SOURCES}
     )
     target_include_directories(ultron_benchmark PRIVATE include)
+    if (WIN32)
+        target_link_libraries(ultron_benchmark PRIVATE user32)
+    endif()
 endif()
