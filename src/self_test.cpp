@@ -20,7 +20,7 @@
 namespace {
 void require(
     bool condition,
-    const char* expression) {
+    const char* expression = "condition") {
 
     if (!condition) {
         throw std::runtime_error(
