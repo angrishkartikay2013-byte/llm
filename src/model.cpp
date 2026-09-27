@@ -23,13 +23,15 @@
 #include <filesystem>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
 
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
-#include <conio.h>
 #endif
 
 namespace {
@@ -160,77 +162,100 @@ enum class TrainingHotkeyAction {
     SaveAndTest = 2
 };
 
-bool g_training_test_requested = false;
-std::atomic<int> g_training_hotkey_pending{0};
+std::atomic<bool> g_training_test_requested{false};
 
-#ifdef _WIN32
-bool control_key_down() {
-    return (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-}
-
-bool letter_key_down(int virtual_key) {
-    return (GetAsyncKeyState(virtual_key) & 0x8000) != 0;
-}
-
-void watch_training_hotkeys(std::stop_token stop_token) {
-    bool previous_t = false;
-    bool previous_u = false;
-
-    while (!stop_token.stop_requested()) {
-        const bool ctrl = control_key_down();
-        const bool current_t = ctrl && letter_key_down('T');
-        const bool current_u = ctrl && letter_key_down('U');
-
-        // Record a key press only once, even when the key is held down.
-        if (current_t && !previous_t) {
-            g_training_hotkey_pending.store(
-                static_cast<int>(TrainingHotkeyAction::SaveAndTest),
-                std::memory_order_release);
-        } else if (current_u && !previous_u) {
-            int expected = static_cast<int>(TrainingHotkeyAction::None);
-            g_training_hotkey_pending.compare_exchange_strong(
-                expected,
-                static_cast<int>(TrainingHotkeyAction::Save),
-                std::memory_order_acq_rel);
+class ConsoleLineReader {
+public:
+    void start() {
+        if (started_) {
+            return;
         }
 
-        previous_t = current_t;
-        previous_u = current_u;
+        started_ = true;
 
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(5));
+        std::thread(
+            [this] {
+                std::string line;
+
+                while (std::getline(std::cin, line)) {
+                    {
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        lines_.push_back(std::move(line));
+                    }
+
+                    condition_.notify_one();
+                }
+
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    eof_ = true;
+                }
+
+                condition_.notify_all();
+            })
+            .detach();
     }
-}
-#endif
+
+    bool try_pop(std::string& line) {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (lines_.empty()) {
+            return false;
+        }
+
+        line = std::move(lines_.front());
+        lines_.pop_front();
+        return true;
+    }
+
+    bool wait_pop(std::string& line) {
+        std::unique_lock<std::mutex> lock(mutex_);
+
+        condition_.wait(
+            lock,
+            [this] {
+                return !lines_.empty() || eof_;
+            });
+
+        if (lines_.empty()) {
+            return false;
+        }
+
+        line = std::move(lines_.front());
+        lines_.pop_front();
+        return true;
+    }
+
+private:
+    bool started_ = false;
+    bool eof_ = false;
+    std::mutex mutex_;
+    std::condition_variable condition_;
+    std::deque<std::string> lines_;
+};
+
+ConsoleLineReader g_console_input;
 
 TrainingHotkeyAction poll_training_hotkey() {
-#ifdef _WIN32
-    // Also accept ordinary console input so the user can press 1 or 2
-    // without relying on Ctrl combinations.
-    while (_kbhit()) {
-        const int key = _getch();
+    std::string line;
 
-        if (key == '2') {
+    while (g_console_input.try_pop(line)) {
+        line.erase(
+            std::remove_if(
+                line.begin(),
+                line.end(),
+                [](unsigned char character) {
+                    return std::isspace(character);
+                }),
+            line.end());
+
+        if (line == "2") {
             return TrainingHotkeyAction::SaveAndTest;
         }
 
-        if (key == '1') {
+        if (line == "1") {
             return TrainingHotkeyAction::Save;
         }
-    }
-#endif
-
-    const int pending =
-        g_training_hotkey_pending.exchange(
-            static_cast<int>(TrainingHotkeyAction::None),
-            std::memory_order_acq_rel);
-
-    if (pending == static_cast<int>(TrainingHotkeyAction::SaveAndTest)) {
-        return TrainingHotkeyAction::SaveAndTest;
-    }
-
-    if (pending == static_cast<int>(TrainingHotkeyAction::Save)) {
-        return TrainingHotkeyAction::Save;
     }
 
     return TrainingHotkeyAction::None;
@@ -685,7 +710,11 @@ float ULTRONModel::train(
     std::size_t speed,
     const std::string& checkpoint_path) {
 
-    g_training_test_requested = false;
+    g_training_test_requested.store(
+        false,
+        std::memory_order_release);
+
+    g_console_input.start();
 
     if (text.empty() ||
         epochs == 0 ||
@@ -820,22 +849,11 @@ float ULTRONModel::train(
         << training_threads
         << '\n';
 
-#ifdef _WIN32
-    g_training_hotkey_pending.store(
-        static_cast<int>(TrainingHotkeyAction::None),
-        std::memory_order_release);
-
-    std::jthread hotkey_watcher(
-        [](std::stop_token stop_token) {
-            watch_training_hotkeys(stop_token);
-        });
-
     std::cout
-        << "[train] controls: 1 / Ctrl+U = safe save + continue | "
-        << "2 / Ctrl+T = safe save + test mode"
+        << "[train] controls: type 1 + Enter = safe save + continue | "
+        << "2 + Enter = safe save + test mode"
         << '\n';
     std::cout.flush();
-#endif
 
     // Walk across the complete corpus instead of silently training only on
     // its final context window. Keep a one-token overlap so next-token
@@ -1370,7 +1388,9 @@ float ULTRONModel::train(
                 }
 
                 if (hotkey_action == TrainingHotkeyAction::SaveAndTest) {
-                    g_training_test_requested = true;
+                    g_training_test_requested.store(
+                        true,
+                        std::memory_order_release);
                 }
             }
 
@@ -1418,12 +1438,14 @@ float ULTRONModel::train(
                 std::cout.flush();
             }
 
-            if (g_training_test_requested) {
+            if (g_training_test_requested.load(
+                    std::memory_order_acquire)) {
                 break;
             }
         }
 
-        if (g_training_test_requested) {
+        if (g_training_test_requested.load(
+                std::memory_order_acquire)) {
             last_epoch_loss =
                 epoch_samples == 0
                     ? 0.0f
