@@ -5,6 +5,7 @@
 #include "tensor.hpp"
 #include "transformer.hpp"
 #include "tokenizer.hpp"
+#include "trainer.hpp"
 
 #include <cassert>
 #include <cmath>
