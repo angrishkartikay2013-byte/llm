@@ -25,7 +25,8 @@ if ($Speed -lt 1 -or $Speed -gt 10) {
     throw "Training speed must be between 1 and 10."
 }
 
-cmake --build build --config Release
+$buildScript = Join-Path (Split-Path -Parent $PSScriptRoot) "scripts/build.ps1"
+& $buildScript
 
 if ($LASTEXITCODE -ne 0) {
     throw "ULTRON build failed with exit code $LASTEXITCODE."
