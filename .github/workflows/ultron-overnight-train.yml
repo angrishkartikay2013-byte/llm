@@ -1,5 +1,4 @@
-name: ULTRON Overnight Training
-# Triggered for the overnight training run.
+name: ULTRON 16H Founder Training
 
 on:
   push:
@@ -8,11 +7,16 @@ on:
       - ".github/workflows/ultron-overnight-train.yml"
   workflow_dispatch:
 
+concurrency:
+  group: ultron-16h-training
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
-  train:
+  train-1:
+    name: Training stage 1 (0-5h20m)
     runs-on: windows-latest
     timeout-minutes: 350
 
@@ -38,44 +42,37 @@ jobs:
             throw "ULTRON self-test failed. Training will not start."
           }
 
-      - name: Download UltraChat control corpus
+      - name: Download UltraChat training data
         shell: pwsh
         run: |
           .\scripts\download_ultrachat.ps1 -TrainConversations 3000 -ValidationConversations 500
 
-      - name: Train continuously with safe checkpoints
+      - name: Train for 320 minutes from scratch
         shell: pwsh
-        env:
-          TRAIN_MINUTES: "300"
-          LEARNING_RATE: "0.001"
-          SPEED: "3"
         run: |
           $ErrorActionPreference = "Stop"
           $exe = ".\build\ultron.exe"
           $checkpoint = "models\ultron_big.bin"
           New-Item -ItemType Directory -Force -Path "models" | Out-Null
-          $deadline = (Get-Date).AddMinutes([int]$env:TRAIN_MINUTES)
+
+          $deadline = (Get-Date).AddMinutes(320)
           $epoch = 0
           $first = $true
 
           while ((Get-Date) -lt $deadline) {
             $epoch++
-            $started = Get-Date
             Write-Host ""
             Write-Host "============================================================"
-            Write-Host " ULTRON TRAINING CHUNK $epoch"
-            Write-Host " Started : $started"
-            Write-Host " Speed   : $env:SPEED"
-            Write-Host " LR      : $env:LEARNING_RATE"
+            Write-Host " ULTRON STAGE 1 - EPOCH $epoch"
             Write-Host "============================================================"
 
             $arguments = @(
               "--train", "data\external\ultrachat_train_sft.txt",
               "--epochs", "1",
-              "--lr", $env:LEARNING_RATE,
+              "--lr", "0.001",
               "--save", $checkpoint,
               "--save-every", "1",
-              "--speed", $env:SPEED,
+              "--speed", "3",
               "--non-interactive"
             )
 
@@ -85,44 +82,187 @@ jobs:
 
             & $exe @arguments
             if ($LASTEXITCODE -ne 0) {
-              throw "Training chunk $epoch failed with exit code $LASTEXITCODE."
+              throw "Stage 1 epoch $epoch failed with exit code $LASTEXITCODE."
             }
+
             if (!(Test-Path $checkpoint)) {
-              throw "Training chunk $epoch reported success but no checkpoint was created."
+              throw "Stage 1 epoch $epoch completed without a checkpoint."
             }
+
             $first = $false
-            $finished = Get-Date
-            Write-Host "Chunk $epoch finished at $finished."
           }
 
-          Write-Host ""
-          Write-Host "Training window reached its safe time budget."
-          Write-Host "Final checkpoint: $checkpoint"
-          if (!(Test-Path $checkpoint)) {
-            throw "No final checkpoint exists."
-          }
+          Write-Host "Stage 1 complete. Checkpoint exists at $checkpoint."
 
-      - name: Evaluate final checkpoint
-        if: always()
-        shell: pwsh
-        run: |
-          if (!(Test-Path "models\ultron_big.bin")) {
-            Write-Warning "No checkpoint available; skipping evaluation."
-            exit 0
-          }
-          Write-Host "================ FINAL VALIDATION METRICS ================"
-          & .\build\ultron.exe --load models\ultron_big.bin --eval data\external\ultrachat_test_sft.txt --no-online-learning --non-interactive
-          if ($LASTEXITCODE -ne 0) {
-            throw "Final validation evaluation failed."
-          }
-
-      - name: Upload trained checkpoint
+      - name: Upload stage 1 checkpoint
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ultron-big-checkpoint
+          name: ultron-stage-1-checkpoint
+          path: models/ultron_big.bin
+          if-no-files-found: error
+          retention-days: 2
+
+  train-2:
+    name: Training stage 2 (5h20m-10h40m)
+    needs: train-1
+    runs-on: windows-latest
+    timeout-minutes: 350
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Release build
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+
+      - name: Build ULTRON
+        shell: pwsh
+        run: |
+          cmake --build build --parallel 4
+
+      - name: Download stage 1 checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: ultron-stage-1-checkpoint
+          path: models
+
+      - name: Run self-test
+        shell: pwsh
+        run: |
+          & .\build\ultron.exe --self-test
+          if ($LASTEXITCODE -ne 0) {
+            throw "ULTRON self-test failed before stage 2."
+          }
+
+      - name: Download UltraChat training data
+        shell: pwsh
+        run: |
+          .\scripts\download_ultrachat.ps1 -TrainConversations 3000 -ValidationConversations 500
+
+      - name: Continue training for 320 minutes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = ".\build\ultron.exe"
+          $checkpoint = "models\ultron_big.bin"
+          $deadline = (Get-Date).AddMinutes(320)
+          $epoch = 0
+
+          while ((Get-Date) -lt $deadline) {
+            $epoch++
+            Write-Host ""
+            Write-Host "============================================================"
+            Write-Host " ULTRON STAGE 2 - EPOCH $epoch"
+            Write-Host "============================================================"
+
+            & $exe --load $checkpoint --train data\external\ultrachat_train_sft.txt --epochs 1 --lr 0.001 --save $checkpoint --save-every 1 --speed 3 --non-interactive
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Stage 2 epoch $epoch failed with exit code $LASTEXITCODE."
+            }
+
+            if (!(Test-Path $checkpoint)) {
+              throw "Stage 2 epoch $epoch completed without a checkpoint."
+            }
+          }
+
+          Write-Host "Stage 2 complete. Checkpoint exists at $checkpoint."
+
+      - name: Upload stage 2 checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultron-stage-2-checkpoint
+          path: models/ultron_big.bin
+          if-no-files-found: error
+          retention-days: 2
+
+  train-3:
+    name: Training stage 3 (10h40m-16h)
+    needs: train-2
+    runs-on: windows-latest
+    timeout-minutes: 350
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Release build
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+
+      - name: Build ULTRON
+        shell: pwsh
+        run: |
+          cmake --build build --parallel 4
+
+      - name: Download stage 2 checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: ultron-stage-2-checkpoint
+          path: models
+
+      - name: Run self-test
+        shell: pwsh
+        run: |
+          & .\build\ultron.exe --self-test
+          if ($LASTEXITCODE -ne 0) {
+            throw "ULTRON self-test failed before stage 3."
+          }
+
+      - name: Download UltraChat training data
+        shell: pwsh
+        run: |
+          .\scripts\download_ultrachat.ps1 -TrainConversations 3000 -ValidationConversations 500
+
+      - name: Continue training for 320 minutes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = ".\build\ultron.exe"
+          $checkpoint = "models\ultron_big.bin"
+          $deadline = (Get-Date).AddMinutes(320)
+          $epoch = 0
+
+          while ((Get-Date) -lt $deadline) {
+            $epoch++
+            Write-Host ""
+            Write-Host "============================================================"
+            Write-Host " ULTRON STAGE 3 - EPOCH $epoch"
+            Write-Host "============================================================"
+
+            & $exe --load $checkpoint --train data\external\ultrachat_train_sft.txt --epochs 1 --lr 0.001 --save $checkpoint --save-every 1 --speed 3 --non-interactive
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Stage 3 epoch $epoch failed with exit code $LASTEXITCODE."
+            }
+
+            if (!(Test-Path $checkpoint)) {
+              throw "Stage 3 epoch $epoch completed without a checkpoint."
+            }
+          }
+
+          Write-Host "Stage 3 complete. Final checkpoint exists at $checkpoint."
+
+      - name: Final validation
+        shell: pwsh
+        run: |
+          & .\build\ultron.exe --load models\ultron_big.bin --eval data\external\ultrachat_test_sft.txt --no-online-learning --non-interactive
+          if ($LASTEXITCODE -ne 0) {
+            throw "Final held-out validation failed."
+          }
+
+      - name: Upload final ULTRON checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ULTRON-16H-FINAL
           path: |
             models/ultron_big.bin
             data/external/ultrachat_manifest.txt
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
