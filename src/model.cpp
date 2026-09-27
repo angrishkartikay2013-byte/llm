@@ -1584,6 +1584,8 @@ float ULTRONModel::train(
                     << interval_windows_per_second
                     << " win/s | "
                     << interval_samples_per_second
+                    << " samples/s | avg "
+                    << samples_per_second
                     << " samples/s | elapsed "
                     << elapsed_seconds
                     << "s | ETA "
