@@ -20,6 +20,11 @@
 #include <unordered_map>
 #include <cctype>
 #include <thread>
+#include <filesystem>
+
+#ifdef _WIN32
+#include <conio.h>
+#endif
 
 namespace {
 constexpr std::size_t kEmbeddingSize = 32;
@@ -141,6 +146,96 @@ bool read_string(
         static_cast<std::streamsize>(length));
 
     return static_cast<bool>(input);
+}
+
+enum class TrainingHotkeyAction {
+    None,
+    Save,
+    SaveAndTest
+};
+
+bool g_training_test_requested = false;
+
+TrainingHotkeyAction poll_training_hotkey() {
+#ifdef _WIN32
+    while (_kbhit()) {
+        const int key = _getch();
+
+        // Windows console Ctrl+T / Ctrl+U arrive as ASCII control codes
+        // 0x14 / 0x15 respectively.
+        if (key == 0x14) {
+            return TrainingHotkeyAction::SaveAndTest;
+        }
+
+        if (key == 0x15) {
+            return TrainingHotkeyAction::Save;
+        }
+    }
+#endif
+
+    return TrainingHotkeyAction::None;
+}
+
+bool safe_checkpoint_save(
+    const ULTRONModel& model,
+    const std::string& path) {
+
+    if (path.empty()) {
+        return false;
+    }
+
+    namespace fs = std::filesystem;
+
+    const fs::path destination(path);
+    const fs::path temporary =
+        destination.string() + ".tmp";
+    const fs::path backup =
+        destination.string() + ".bak";
+
+    std::error_code error;
+
+    if (!model.save_checkpoint(temporary.string())) {
+        fs::remove(temporary, error);
+        return false;
+    }
+
+    // Keep a known-good previous checkpoint while replacing the destination.
+    if (fs::exists(backup, error)) {
+        fs::remove(backup, error);
+    }
+
+    if (fs::exists(destination, error)) {
+        fs::copy_file(
+            destination,
+            backup,
+            fs::copy_options::overwrite_existing,
+            error);
+
+        if (error) {
+            fs::remove(temporary, error);
+            return false;
+        }
+
+        fs::remove(destination, error);
+
+        if (error) {
+            fs::remove(temporary, error);
+            return false;
+        }
+    }
+
+    fs::rename(temporary, destination, error);
+
+    if (error) {
+        // Restore the previous checkpoint if replacement failed.
+        if (fs::exists(backup, error)) {
+            fs::rename(backup, destination, error);
+        }
+        fs::remove(temporary, error);
+        return false;
+    }
+
+    return true;
 }
 
 void clip_gradients(
@@ -527,7 +622,10 @@ float ULTRONModel::train(
     const std::function<void(
         std::size_t,
         float)>& progress,
-    std::size_t speed) {
+    std::size_t speed,
+    const std::string& checkpoint_path) {
+
+    g_training_test_requested = false;
 
     if (text.empty() ||
         epochs == 0 ||
@@ -1162,6 +1260,43 @@ float ULTRONModel::train(
 
             window_number = batch_end;
 
+            // Training hotkeys are handled only after a completed optimizer
+            // update, so a save always captures a consistent model + optimizer.
+            const hotkey_action = poll_training_hotkey();
+
+            if (hotkey_action == TrainingHotkeyAction::Save ||
+                hotkey_action == TrainingHotkeyAction::SaveAndTest) {
+
+                const std::string hotkey_checkpoint =
+                    checkpoint_path.empty()
+                        ? "models/ultron_hotkey.bin"
+                        : checkpoint_path;
+
+                if (safe_checkpoint_save(
+                        *this,
+                        hotkey_checkpoint)) {
+
+                    std::cout
+                        << "[HOTKEY] "
+                        << (hotkey_action == TrainingHotkeyAction::SaveAndTest
+                                ? "Ctrl+T saved checkpoint: "
+                                : "Ctrl+U saved checkpoint: ")
+                        << hotkey_checkpoint
+                        << '\n';
+                    std::cout.flush();
+                } else {
+                    std::cerr
+                        << "[HOTKEY] Failed to save checkpoint: "
+                        << hotkey_checkpoint
+                        << '\n';
+                    std::cerr.flush();
+                }
+
+                if (hotkey_action == TrainingHotkeyAction::SaveAndTest) {
+                    g_training_test_requested = true;
+                }
+            }
+
             if (window_number == total_windows ||
                 window_number % std::max<std::size_t>(
                     1,
@@ -1205,6 +1340,27 @@ float ULTRONModel::train(
 
                 std::cout.flush();
             }
+
+            if (g_training_test_requested) {
+                break;
+            }
+        }
+
+        if (g_training_test_requested) {
+            last_epoch_loss =
+                epoch_samples == 0
+                    ? 0.0f
+                    : static_cast<float>(
+                        epoch_loss /
+                        static_cast<double>(
+                            epoch_samples));
+
+            std::cout
+                << "[HOTKEY] Ctrl+T stopped training safely after "
+                << "the completed batch."
+                << '\n';
+            std::cout.flush();
+            break;
         }
 
         last_epoch_loss =
@@ -1887,6 +2043,10 @@ std::string ULTRONModel::generate(
     }
 
     return result.str();
+}
+
+bool ULTRONModel::training_test_requested() const {
+    return g_training_test_requested;
 }
 
 bool ULTRONModel::save_checkpoint(
