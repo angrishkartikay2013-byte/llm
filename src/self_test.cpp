@@ -7,7 +7,6 @@
 #include "tokenizer.hpp"
 #include "trainer.hpp"
 
-#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <iostream>
@@ -19,13 +18,26 @@
 #include <vector>
 
 namespace {
+void require(
+    bool condition,
+    const char* expression) {
+
+    if (!condition) {
+        throw std::runtime_error(
+            std::string("ULTRON self-test failed: ") +
+            expression);
+    }
+}
+
 void assert_close(
     double left,
     double right,
     double tolerance) {
-    assert(std::isfinite(left));
-    assert(std::isfinite(right));
-    assert(std::fabs(left - right) <= tolerance);
+    require(std::isfinite(left), "left is finite");
+    require(std::isfinite(right), "right is finite");
+    require(
+        std::fabs(left - right) <= tolerance,
+        "values are within tolerance");
 }
 }
 
@@ -39,8 +51,8 @@ int run_ultron_smoke_tests() {
     b.at(1, 0) = 7.0f; b.at(1, 1) = 8.0f;
 
     const Tensor product = a.matmul(b);
-    assert(std::fabs(product.at(0, 0) - 19.0f) < 1e-5f);
-    assert(std::fabs(product.at(1, 1) - 50.0f) < 1e-5f);
+    require(std::fabs(product.at(0, 0) - 19.0f) < 1e-5f);
+    require(std::fabs(product.at(1, 1) - 50.0f) < 1e-5f);
 
     // Fresh tokenizer: byte fallback + learned BPE merges.
     const std::string tokenizer_text =
@@ -51,7 +63,7 @@ int run_ultron_smoke_tests() {
     Tokenizer tokenizer;
     tokenizer.train(tokenizer_text);
 
-    assert(tokenizer.vocabulary_size() > 257);
+    require(tokenizer.vocabulary_size() > 257);
 
     const std::string unseen_text =
         "NeverSeenWord42?!\nI'm-ready.";
@@ -59,16 +71,16 @@ int run_ultron_smoke_tests() {
     const auto encoded =
         tokenizer.encode(unseen_text);
 
-    assert(!encoded.empty());
+    require(!encoded.empty());
 
     for (const int token : encoded) {
-        assert(token > 0);
-        assert(
+        require(token > 0);
+        require(
             static_cast<std::size_t>(token) <
             tokenizer.vocabulary_size());
     }
 
-    assert(
+    require(
         tokenizer.decode(encoded) ==
         unseen_text);
 
@@ -78,7 +90,7 @@ int run_ultron_smoke_tests() {
     tokenizer.train(
         "A completely different stream of new words arrives.");
 
-    assert(
+    require(
         tokenizer.vocabulary_size() ==
         frozen_vocab);
 
@@ -88,13 +100,13 @@ int run_ultron_smoke_tests() {
         std::ios::out |
         std::ios::binary);
 
-    assert(tokenizer.save(tokenizer_stream));
+    require(tokenizer.save(tokenizer_stream));
 
     Tokenizer restored_tokenizer;
     tokenizer_stream.seekg(0);
-    assert(restored_tokenizer.load(tokenizer_stream));
+    require(restored_tokenizer.load(tokenizer_stream));
 
-    assert(
+    require(
         restored_tokenizer.decode(
             restored_tokenizer.encode(unseen_text)) ==
         unseen_text);
@@ -107,28 +119,28 @@ int run_ultron_smoke_tests() {
     const auto layout_tokens =
         tokenizer.encode(layout_text);
 
-    assert(
+    require(
         tokenizer.decode(layout_tokens) ==
         layout_text);
 
-    assert(
+    require(
         tokenizer.encode("hello world").size() >= 3);
 
-    assert(
+    require(
         tokenizer.encode("hello,").size() >= 2);
 
-    assert(
+    require(
         tokenizer.encode("hello\nworld").size() >= 3);
 
     // Deterministic tokenizer training is important for reproducible models.
     Tokenizer tokenizer_again;
     tokenizer_again.train(tokenizer_text);
 
-    assert(
+    require(
         tokenizer_again.vocabulary_size() ==
         tokenizer.vocabulary_size());
 
-    assert(
+    require(
         tokenizer_again.encode(unseen_text) ==
         tokenizer.encode(unseen_text));
 
@@ -168,8 +180,8 @@ int run_ultron_smoke_tests() {
 
     Tokenizer legacy_tokenizer;
     legacy_stream.seekg(0);
-    assert(legacy_tokenizer.load(legacy_stream));
-    assert(
+    require(legacy_tokenizer.load(legacy_stream));
+    require(
         legacy_tokenizer.decode(
             legacy_tokenizer.encode(
                 "hello world!")) ==
@@ -182,22 +194,22 @@ int run_ultron_smoke_tests() {
         weight,
         std::vector<float>{0.5f, -0.25f});
 
-    assert(weight[0] < 1.0f);
-    assert(weight[1] > -1.0f);
-    assert(optimizer.step_count() == 1);
+    require(weight[0] < 1.0f);
+    require(weight[1] > -1.0f);
+    require(optimizer.step_count() == 1);
 
     std::stringstream optimizer_stream(
         std::ios::in |
         std::ios::out |
         std::ios::binary);
 
-    assert(optimizer.save(optimizer_stream));
+    require(optimizer.save(optimizer_stream));
 
     AdamOptimizer restored_optimizer(2, 0.01f);
     optimizer_stream.seekg(0);
-    assert(restored_optimizer.load(optimizer_stream));
-    assert(restored_optimizer.step_count() == 1);
-    assert(
+    require(restored_optimizer.load(optimizer_stream));
+    require(restored_optimizer.step_count() == 1);
+    require(
         std::fabs(
             restored_optimizer.learning_rate() -
             optimizer.learning_rate()) <
@@ -211,7 +223,7 @@ int run_ultron_smoke_tests() {
     } catch (const std::invalid_argument&) {
         invalid_transformer_threw = true;
     }
-    assert(invalid_transformer_threw);
+    require(invalid_transformer_threw);
 
     // Transformer forward/backward and finite gradients.
     TransformerBlock transformer(8, 2, 16);
@@ -229,6 +241,22 @@ int run_ultron_smoke_tests() {
         {-0.20f, 0.80f, -0.60f, 0.10f, 0.50f, -0.30f, 0.40f, -0.70f},
         {0.90f, 0.20f, -0.40f, 0.70f, -0.10f, -0.80f, 0.30f, 0.50f}
     };
+
+    // Worker-thread numerical failures must propagate as C++ exceptions,
+    // not terminate the process.
+    bool nonfinite_forward_threw = false;
+    try {
+        auto bad_inputs = inputs;
+        bad_inputs[1][2] =
+            std::numeric_limits<float>::quiet_NaN();
+        (void)transformer.forward(bad_inputs);
+    } catch (const std::exception&) {
+        nonfinite_forward_threw = true;
+    }
+    require(
+        nonfinite_forward_threw,
+        "Transformer forward rejects non-finite input safely");
+
     std::vector<std::vector<float>> grad_inputs;
     TransformerBlock::Gradients transformer_gradients;
 
@@ -243,14 +271,14 @@ int run_ultron_smoke_tests() {
         transformer_gradients,
         flattened_gradients);
 
-    assert(forward_output.size() == inputs.size());
-    assert(grad_inputs.size() == inputs.size());
-    assert(
+    require(forward_output.size() == inputs.size());
+    require(grad_inputs.size() == inputs.size());
+    require(
         flattened_gradients.size() ==
         transformer.parameter_count());
 
     for (const float value : flattened_gradients) {
-        assert(std::isfinite(value));
+        require(std::isfinite(value));
     }
 
     // Numerical gradient regression: compare several analytical transformer
@@ -327,7 +355,7 @@ int run_ultron_smoke_tests() {
             static_cast<double>(
                 flattened_gradients[parameter]);
 
-        assert(
+        require(
             std::fabs(
                 numerical_gradient -
                 analytical_gradient) <
@@ -357,13 +385,13 @@ int run_ultron_smoke_tests() {
             1,
             0.001f);
 
-    assert(std::isfinite(first_epoch_loss));
-    assert(std::isfinite(second_epoch_loss));
+    require(std::isfinite(first_epoch_loss));
+    require(std::isfinite(second_epoch_loss));
 
     const auto first_epoch_metrics =
         continuous.evaluate(corpus);
-    assert(std::isfinite(first_epoch_metrics.mean_loss));
-    assert(std::isfinite(first_epoch_metrics.perplexity));
+    require(std::isfinite(first_epoch_metrics.mean_loss));
+    require(std::isfinite(first_epoch_metrics.perplexity));
 
     // The smoke test requires a valid second training step but does not make
     // a brittle claim about the exact direction of one tiny-batch update.
@@ -372,10 +400,10 @@ int run_ultron_smoke_tests() {
     const auto continuous_metrics =
         continuous.evaluate(corpus);
 
-    assert(continuous_metrics.samples > 0);
-    assert(std::isfinite(continuous_metrics.mean_loss));
-    assert(std::isfinite(continuous_metrics.perplexity));
-    assert(std::isfinite(continuous_metrics.accuracy));
+    require(continuous_metrics.samples > 0);
+    require(std::isfinite(continuous_metrics.mean_loss));
+    require(std::isfinite(continuous_metrics.perplexity));
+    require(std::isfinite(continuous_metrics.accuracy));
 
     continuous.train(
         "Question: what is the test answer?\n"
@@ -396,10 +424,10 @@ int run_ultron_smoke_tests() {
     const auto fast_metrics =
         fast_mode.evaluate(corpus);
 
-    assert(fast_metrics.samples > 0);
-    assert(std::isfinite(fast_metrics.mean_loss));
-    assert(std::isfinite(fast_metrics.perplexity));
-    assert(std::isfinite(fast_metrics.accuracy));
+    require(fast_metrics.samples > 0);
+    require(std::isfinite(fast_metrics.mean_loss));
+    require(std::isfinite(fast_metrics.perplexity));
+    require(std::isfinite(fast_metrics.accuracy));
 
     const std::string generated =
         continuous.generate(
@@ -409,7 +437,7 @@ int run_ultron_smoke_tests() {
             1,
             42);
 
-    assert(!generated.empty());
+    require(!generated.empty());
 
     const std::string learned =
         continuous.generate(
@@ -419,7 +447,7 @@ int run_ultron_smoke_tests() {
             3,
             42);
 
-    assert(
+    require(
         learned.find(
             "learned memory works.") !=
         std::string::npos);
@@ -446,12 +474,12 @@ int run_ultron_smoke_tests() {
     const std::string continuation_checkpoint =
         "ultron_continuation_checkpoint.bin";
 
-    assert(
+    require(
         checkpointed.save_checkpoint(
             continuation_checkpoint));
 
     ULTRONModel continuation_restored;
-    assert(
+    require(
         continuation_restored.load_checkpoint(
             continuation_checkpoint));
 
@@ -492,7 +520,7 @@ int run_ultron_smoke_tests() {
             1,
             42);
 
-    assert(restored_text == uninterrupted_text);
+    require(restored_text == uninterrupted_text);
 
     std::remove(
         checkpoint.c_str());
