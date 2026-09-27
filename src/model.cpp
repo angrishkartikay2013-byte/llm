@@ -724,7 +724,15 @@ float ULTRONModel::train(
         false,
         std::memory_order_release);
 
-    g_console_input.start();
+    // Only real checkpointed training sessions get the asynchronous command
+    // reader. Smoke tests and small in-chat teaching calls must never consume
+    // the user's terminal input.
+    const bool interactive_training_controls =
+        !checkpoint_path.empty();
+
+    if (interactive_training_controls) {
+        g_console_input.start();
+    }
 
     if (text.empty() ||
         epochs == 0 ||
@@ -859,11 +867,13 @@ float ULTRONModel::train(
         << training_threads
         << '\n';
 
-    std::cout
-        << "[train] controls: type 1 + Enter = safe save + continue | "
-        << "2 + Enter = safe save + test mode"
-        << '\n';
-    std::cout.flush();
+    if (interactive_training_controls) {
+        std::cout
+            << "[train] controls: type 1 + Enter = safe save + continue | "
+            << "2 + Enter = safe save + test mode"
+            << '\n';
+        std::cout.flush();
+    }
 
     // Walk across the complete corpus instead of silently training only on
     // its final context window. Keep a one-token overlap so next-token
@@ -1365,9 +1375,13 @@ float ULTRONModel::train(
 
             window_number = batch_end;
 
-            // Training hotkeys are handled only after a completed optimizer
-            // update, so a save always captures a consistent model + optimizer.
-            const TrainingHotkeyAction hotkey_action = poll_training_hotkey();
+            // Interactive training commands are handled only after a
+            // completed optimizer update, so a save always captures a
+            // consistent model + optimizer.
+            const TrainingHotkeyAction hotkey_action =
+                interactive_training_controls
+                    ? poll_training_hotkey()
+                    : TrainingHotkeyAction::None;
 
             if (hotkey_action == TrainingHotkeyAction::Save ||
                 hotkey_action == TrainingHotkeyAction::SaveAndTest) {
