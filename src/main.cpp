@@ -338,14 +338,14 @@ int main(int argc, char** argv) {
         std::cout
             << "ULTRON ready. Type 'exit' to quit.\n";
 
+        ultron_start_console_input();
         std::string input;
 
         while (true) {
             std::cout << "> ";
+            std::cout.flush();
 
-            if (!std::getline(
-                    std::cin,
-                    input)) {
+            if (!ultron_read_console_line(input)) {
                 break;
             }
 
