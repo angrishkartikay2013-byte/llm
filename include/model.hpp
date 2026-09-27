@@ -53,3 +53,10 @@ private:
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
+
+
+// Start the shared asynchronous console reader used during training and chat.
+void ultron_start_console_input();
+
+// Wait for the next complete console line. Returns false on EOF.
+bool ultron_read_console_line(std::string& line);
