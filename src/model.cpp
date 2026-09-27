@@ -1020,9 +1020,14 @@ float ULTRONModel::train(
             // instead of repeatedly visiting the same fixed stride positions.
             std::mt19937 window_generator(epoch_seed);
 
+            const std::size_t max_start =
+                tokens.size() > speed_config.sequence_length
+                    ? tokens.size() - speed_config.sequence_length
+                    : tokens.size() - 2;
+
             std::uniform_int_distribution<std::size_t> start_distribution(
                 0,
-                tokens.size() - 2);
+                max_start);
 
             window_starts.reserve(sampled_window_count);
 
@@ -1944,7 +1949,7 @@ std::string ULTRONModel::generate(
     constexpr std::size_t kNoRepeatNgram = 3;
     constexpr std::size_t kRecentTokenWindow = 64;
     constexpr std::size_t kMaximumWordRun = 18;
-    constexpr std::size_t kPickyTopKCap = 6;
+    constexpr std::size_t kPickyTopKCap = 32;
 
     const auto is_word_character =
         [](unsigned char character) {
