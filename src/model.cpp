@@ -25,6 +25,9 @@
 #include <chrono>
 
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #endif
 
@@ -158,7 +161,6 @@ enum class TrainingHotkeyAction {
 
 bool g_training_test_requested = false;
 std::atomic<int> g_training_hotkey_pending{0};
-std::atomic<bool> g_training_hotkey_watcher_stop{false};
 
 #ifdef _WIN32
 bool control_key_down() {
@@ -169,11 +171,11 @@ bool letter_key_down(int virtual_key) {
     return (GetAsyncKeyState(virtual_key) & 0x8000) != 0;
 }
 
-void watch_training_hotkeys() {
+void watch_training_hotkeys(std::stop_token stop_token) {
     bool previous_t = false;
     bool previous_u = false;
 
-    while (!g_training_hotkey_watcher_stop.load(std::memory_order_relaxed)) {
+    while (!stop_token.stop_requested()) {
         const bool ctrl = control_key_down();
         const bool current_t = ctrl && letter_key_down('T');
         const bool current_u = ctrl && letter_key_down('U');
@@ -805,13 +807,10 @@ float ULTRONModel::train(
     g_training_hotkey_pending.store(
         static_cast<int>(TrainingHotkeyAction::None),
         std::memory_order_release);
-    g_training_hotkey_watcher_stop.store(
-        false,
-        std::memory_order_release);
 
     std::jthread hotkey_watcher(
-        [] {
-            watch_training_hotkeys();
+        [](std::stop_token stop_token) {
+            watch_training_hotkeys(stop_token);
         });
 
     std::cout
