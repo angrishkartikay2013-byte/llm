@@ -7,6 +7,8 @@
 #include <random>
 #include <thread>
 #include <stdexcept>
+#include <exception>
+#include <mutex>
 #include <istream>
 #include <ostream>
 
@@ -14,6 +16,16 @@
 namespace {
 
 thread_local bool g_nested_parallel_worker = false;
+
+void capture_transformer_worker_exception(
+    std::exception_ptr& destination,
+    std::mutex& mutex) {
+    std::lock_guard<std::mutex> lock(mutex);
+
+    if (!destination) {
+        destination = std::current_exception();
+    }
+}
 
 std::size_t transformer_thread_count(
     std::size_t sequence_length) {
@@ -515,6 +527,9 @@ std::vector<std::vector<float>> TransformerBlock::forward(
     const std::size_t qkv_threads =
         transformer_thread_count(sequence_length);
 
+    std::exception_ptr worker_error;
+    std::mutex worker_error_mutex;
+
     std::vector<std::thread> qkv_workers;
     qkv_workers.reserve(qkv_threads);
 
@@ -524,7 +539,8 @@ std::vector<std::vector<float>> TransformerBlock::forward(
 
         qkv_workers.emplace_back(
             [&, worker]() {
-                const std::size_t begin =
+                try {
+                    const std::size_t begin =
                     (sequence_length * worker) / qkv_threads;
                 const std::size_t end =
                     (sequence_length * (worker + 1)) / qkv_threads;
@@ -539,11 +555,20 @@ std::vector<std::vector<float>> TransformerBlock::forward(
                     values[i] =
                         linear(embeddings[i], value_weight_);
                 }
+                catch (...) {
+                    capture_transformer_worker_exception(
+                        worker_error,
+                        worker_error_mutex);
+                }
             });
     }
 
     for (auto& worker : qkv_workers) {
         worker.join();
+    }
+
+    if (worker_error) {
+        std::rethrow_exception(worker_error);
     }
 
     std::vector<std::vector<std::vector<float>>> attention_weights(
@@ -574,7 +599,8 @@ std::vector<std::vector<float>> TransformerBlock::forward(
 
         attention_workers.emplace_back(
             [&, worker]() {
-                const std::size_t begin =
+                try {
+                    const std::size_t begin =
                     (sequence_length * worker) / attention_threads;
                 const std::size_t end =
                     (sequence_length * (worker + 1)) / attention_threads;
@@ -657,11 +683,20 @@ std::vector<std::vector<float>> TransformerBlock::forward(
                         }
                     }
                 }
+                catch (...) {
+                    capture_transformer_worker_exception(
+                        worker_error,
+                        worker_error_mutex);
+                }
             });
     }
 
     for (auto& worker : attention_workers) {
         worker.join();
+    }
+
+    if (worker_error) {
+        std::rethrow_exception(worker_error);
     }
 
     std::vector<std::vector<float>> attention_residual(
@@ -720,7 +755,8 @@ std::vector<std::vector<float>> TransformerBlock::forward(
 
         ffn_workers.emplace_back(
             [&, worker]() {
-                const std::size_t begin =
+                try {
+                    const std::size_t begin =
                     (sequence_length * worker) / ffn_threads;
                 const std::size_t end =
                     (sequence_length * (worker + 1)) / ffn_threads;
@@ -764,11 +800,20 @@ std::vector<std::vector<float>> TransformerBlock::forward(
                         layer_norm(
                             ffn_residual[i]);
                 }
+                catch (...) {
+                    capture_transformer_worker_exception(
+                        worker_error,
+                        worker_error_mutex);
+                }
             });
     }
 
     for (auto& worker : ffn_workers) {
         worker.join();
+    }
+
+    if (worker_error) {
+        std::rethrow_exception(worker_error);
     }
 
     return output;
@@ -850,6 +895,9 @@ void TransformerBlock::backward(
     const std::size_t backward_qkv_threads =
         transformer_thread_count(sequence_length);
 
+    std::exception_ptr backward_worker_error;
+    std::mutex backward_worker_error_mutex;
+
     std::vector<std::thread> backward_qkv_workers;
     backward_qkv_workers.reserve(backward_qkv_threads);
 
@@ -859,7 +907,8 @@ void TransformerBlock::backward(
 
         backward_qkv_workers.emplace_back(
             [&, worker]() {
-                const std::size_t begin =
+                try {
+                    const std::size_t begin =
                     (sequence_length * worker) / backward_qkv_threads;
                 const std::size_t end =
                     (sequence_length * (worker + 1)) / backward_qkv_threads;
@@ -880,11 +929,20 @@ void TransformerBlock::backward(
                             embeddings[i],
                             value_weight_);
                 }
+                catch (...) {
+                    capture_transformer_worker_exception(
+                        backward_worker_error,
+                        backward_worker_error_mutex);
+                }
             });
     }
 
     for (auto& worker : backward_qkv_workers) {
         worker.join();
+    }
+
+    if (backward_worker_error) {
+        std::rethrow_exception(backward_worker_error);
     }
 
     for (std::size_t query = 0;
