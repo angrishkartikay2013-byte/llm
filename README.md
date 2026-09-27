@@ -1,6 +1,6 @@
 # ULTRON LLM
 
-ULTRON is a CPU-oriented **Large Language Model engine built from scratch in C++20**. The current model is a small causal Transformer intended for local experiments on modest hardware.
+ULTRON is a CPU-oriented **causal Transformer language-model engine built from scratch in C++20**, designed for local experiments on modest hardware.
 
 ## What ULTRON is
 
