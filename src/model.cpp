@@ -29,6 +29,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <conio.h>
 #endif
 
 namespace {
