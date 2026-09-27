@@ -1,7 +1,7 @@
 param(
     [string]$TrainData = "data/external/ultrachat_train_sft.txt",
     [string]$ValidationData = "data/external/ultrachat_test_sft.txt",
-    [string]$Checkpoint = "models/ultron_ultrachat_control.bin",
+    [string]$Checkpoint = "models/ultron_big.bin",
     [int]$Epochs = 1,
     [double]$LearningRate = 0.001,
     [int]$Speed = 10,
