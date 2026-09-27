@@ -114,6 +114,17 @@ For a deterministic regression-style sample:
 
     .\build\ultron.exe --load models\ultron_bpe.bin --max-tokens 30 --temperature 0.2 --top-k 1 --no-online-learning
 
+## Training hotkeys
+
+While ULTRON is actively training in a Windows console:
+
+    Ctrl+U  save the current model + tokenizer + optimizer state at the next safe batch boundary and continue training
+    Ctrl+T  save the current state, stop after the current safe batch, and enter interactive ULTRON test mode
+
+Hotkey saves use the training checkpoint path passed with --save. If no path is supplied, ULTRON falls back to models/ultron_hotkey.bin. A temporary file and previous .bak checkpoint are kept during replacement so an interrupted write is recoverable.
+
+The hotkeys are handled by the C++ trainer itself, so they work from the normal PowerShell training scripts without requiring a second AI tool.
+
 ## Conversation learning
 
 Interactive mode keeps recent conversation context in:
@@ -139,6 +150,16 @@ To evaluate a saved model on a corpus:
     .\build\ultron.exe --load models\ultron_bpe.bin --eval data\train.txt --no-online-learning
 
 The reported metrics are mean loss, perplexity, and next-token accuracy.
+
+## Learned English training
+
+ULTRON can strengthen general English language patterns without hard-coding responses. The learned-English pipeline downloads Tatoeba's CC0 English sentence export, samples real English sentences, mixes them with UltraChat dialogue, and trains those examples into the existing checkpoint:
+
+    .\scripts\train_english.ps1 -Epochs 3 -Speed 3
+
+By default it continues models/ultron_ultrachat_control.bin. Use -Fresh only when intentionally starting a new checkpoint. Ctrl+U and Ctrl+T remain available during this training as well.
+
+This changes the weights through training data; it does not add canned answers or keyword-response rules.
 
 ## External English data
 
