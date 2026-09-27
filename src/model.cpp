@@ -969,8 +969,7 @@ float ULTRONModel::train(
             1337U ^
             static_cast<unsigned int>(epoch_step) ^
             static_cast<unsigned int>(
-                epoch_step >> 32U) ^
-            static_cast<unsigned int>(epoch);
+                epoch_step >> 32U);
 
         if (speed >= 9) {
             const std::size_t sampled_window_count =
