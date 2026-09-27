@@ -215,16 +215,20 @@ int run_ultron_smoke_tests() {
 
     // Transformer forward/backward and finite gradients.
     TransformerBlock transformer(8, 2, 16);
-    const std::vector<std::vector<float>> inputs(
-        3,
-        std::vector<float>(8, 0.1f));
+    const std::vector<std::vector<float>> inputs = {
+        {0.10f, -0.20f, 0.30f, -0.40f, 0.50f, -0.60f, 0.70f, -0.80f},
+        {0.25f, 0.15f, -0.35f, 0.45f, -0.55f, 0.65f, -0.75f, 0.85f},
+        {-0.30f, 0.40f, 0.20f, -0.50f, 0.60f, 0.10f, -0.70f, 0.80f}
+    };
 
     const auto forward_output =
         transformer.forward(inputs);
 
-    std::vector<std::vector<float>> grad_output(
-        3,
-        std::vector<float>(8, 1.0f));
+    const std::vector<std::vector<float>> grad_output = {
+        {0.70f, -0.10f, 0.30f, -0.50f, 0.20f, 0.60f, -0.40f, 0.90f},
+        {-0.20f, 0.80f, -0.60f, 0.10f, 0.50f, -0.30f, 0.40f, -0.70f},
+        {0.90f, 0.20f, -0.40f, 0.70f, -0.10f, -0.80f, 0.30f, 0.50f}
+    };
     std::vector<std::vector<float>> grad_inputs;
     TransformerBlock::Gradients transformer_gradients;
 
