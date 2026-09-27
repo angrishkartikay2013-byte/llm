@@ -949,34 +949,47 @@ float ULTRONModel::train(
             1,
             speed_config.window_stride);
 
-    // Build the context-window starts fresh for each epoch. For the
-    // sparse high-speed modes, rotate the starting offset so consecutive
-    // epochs do not train on exactly the same 255-token-spaced positions.
-    // This preserves the fast mode while gradually covering more of the
-    // corpus across epochs instead of repeatedly hammering one fixed slice.
+    // Build the context-window starts fresh for each epoch. The high-speed
+    // modes intentionally sample fewer windows than dense training, so those
+    // windows must move around the corpus rather than revisiting the same
+    // fixed positions on every epoch. We keep the same number of windows for
+    // roughly the same runtime, but choose fresh random starting positions so
+    // repeated epochs expose the model to different parts of the corpus.
+    const std::size_t sampled_window_count =
+        std::max<std::size_t>(
+            1,
+            ((tokens.size() - 2) / window_step) + 1);
+
+    std::random_device random_device;
+    const unsigned int run_seed =
+        (static_cast<unsigned int>(random_device()) << 1) ^
+        static_cast<unsigned int>(random_device());
+
     for (std::size_t epoch = 0;
          epoch < epochs;
          ++epoch) {
 
-        const std::size_t coverage_offset =
-            (speed >= 9)
-                ? (epoch % window_step)
-                : 0;
+        std::mt19937 window_generator(
+            run_seed ^
+            (1337U +
+             static_cast<unsigned int>(epoch)));
+
+        std::uniform_int_distribution<std::size_t> start_distribution(
+            0,
+            tokens.size() - 2);
 
         std::vector<std::size_t> window_starts;
-        for (std::size_t start = coverage_offset;
-             start + 1 < tokens.size();
-             start += window_step) {
-            window_starts.push_back(start);
+        window_starts.reserve(sampled_window_count);
+
+        for (std::size_t sample = 0;
+             sample < sampled_window_count;
+             ++sample) {
+            window_starts.push_back(
+                start_distribution(window_generator));
         }
 
-        if (window_starts.empty()) {
-            return 0.0f;
-        }
-
-        // Shuffle window order each epoch so training does not always see
-        // the corpus in the same sequence while preserving deterministic
-        // behavior for a given run.
+        // Shuffle sampled windows for this epoch so optimizer updates do not
+        // follow any accidental corpus ordering pattern.
         std::mt19937 shuffle_generator(
             1337U +
             static_cast<unsigned int>(epoch));
