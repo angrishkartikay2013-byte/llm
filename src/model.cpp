@@ -1072,6 +1072,8 @@ float ULTRONModel::train(
             std::vector<float> output_gradients;
             std::vector<float> transformer_gradients;
             std::vector<float> transformer2_gradients;
+            std::vector<float> transformer3_gradients;
+            std::vector<float> transformer4_gradients;
             std::vector<float> embedding_gradients;
             std::exception_ptr error;
         };
@@ -1150,9 +1152,17 @@ float ULTRONModel::train(
                             const auto first_hidden_states =
                                 impl_->transformer.forward(states);
 
-                            const auto hidden_states =
+                            const auto second_hidden_states =
                                 impl_->transformer2.forward(
                                     first_hidden_states);
+
+                            const auto third_hidden_states =
+                                impl_->transformer3.forward(
+                                    second_hidden_states);
+
+                            const auto hidden_states =
+                                impl_->transformer4.forward(
+                                    third_hidden_states);
 
                             if (hidden_states.size() < 2) {
                                 local.valid = false;
@@ -1280,13 +1290,45 @@ float ULTRONModel::train(
                             }
 
                             TransformerBlock::Gradients
+                                transformer4_gradients;
+                            std::vector<std::vector<float>>
+                                grad_third_hidden;
+
+                            impl_->transformer4.backward(
+                                third_hidden_states,
+                                grad_hidden,
+                                grad_third_hidden,
+                                transformer4_gradients);
+
+                            local.transformer4_gradients.clear();
+                            impl_->transformer4.flatten_gradients(
+                                transformer4_gradients,
+                                local.transformer4_gradients);
+
+                            TransformerBlock::Gradients
+                                transformer3_gradients;
+                            std::vector<std::vector<float>>
+                                grad_second_hidden;
+
+                            impl_->transformer3.backward(
+                                second_hidden_states,
+                                grad_third_hidden,
+                                grad_second_hidden,
+                                transformer3_gradients);
+
+                            local.transformer3_gradients.clear();
+                            impl_->transformer3.flatten_gradients(
+                                transformer3_gradients,
+                                local.transformer3_gradients);
+
+                            TransformerBlock::Gradients
                                 transformer2_gradients;
                             std::vector<std::vector<float>>
                                 grad_first_hidden;
 
                             impl_->transformer2.backward(
                                 first_hidden_states,
-                                grad_hidden,
+                                grad_second_hidden,
                                 grad_first_hidden,
                                 transformer2_gradients);
 
