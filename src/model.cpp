@@ -203,6 +203,22 @@ void watch_training_hotkeys(std::stop_token stop_token) {
 #endif
 
 TrainingHotkeyAction poll_training_hotkey() {
+#ifdef _WIN32
+    // Also accept ordinary console input so the user can press 1 or 2
+    // without relying on Ctrl combinations.
+    while (_kbhit()) {
+        const int key = _getch();
+
+        if (key == '2') {
+            return TrainingHotkeyAction::SaveAndTest;
+        }
+
+        if (key == '1') {
+            return TrainingHotkeyAction::Save;
+        }
+    }
+#endif
+
     const int pending =
         g_training_hotkey_pending.exchange(
             static_cast<int>(TrainingHotkeyAction::None),
@@ -814,8 +830,8 @@ float ULTRONModel::train(
         });
 
     std::cout
-        << "[train] hotkeys: Ctrl+U = safe save + continue | "
-        << "Ctrl+T = safe save + test mode"
+        << "[train] controls: 1 / Ctrl+U = safe save + continue | "
+        << "2 / Ctrl+T = safe save + test mode"
         << '\n';
     std::cout.flush();
 #endif
