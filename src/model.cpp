@@ -175,20 +175,70 @@ public:
 
         std::thread(
             [this] {
-                std::string line;
+#ifdef _WIN32
+                HANDLE input_handle =
+                    GetStdHandle(STD_INPUT_HANDLE);
 
-                while (std::getline(std::cin, line)) {
-                    {
-                        std::lock_guard<std::mutex> lock(mutex_);
-                        lines_.push_back(std::move(line));
+                if (input_handle != nullptr &&
+                    input_handle != INVALID_HANDLE_VALUE) {
+
+                    char buffer[4096];
+
+                    while (true) {
+                        DWORD bytes_read = 0;
+
+                        if (!ReadConsoleA(
+                                input_handle,
+                                buffer,
+                                sizeof(buffer) - 1,
+                                &bytes_read,
+                                nullptr)) {
+                            break;
+                        }
+
+                        if (bytes_read == 0) {
+                            continue;
+                        }
+
+                        buffer[bytes_read] = '\0';
+                        std::string line(buffer, bytes_read);
+
+                        while (!line.empty() &&
+                               (line.back() == '\r' ||
+                                line.back() == '\n')) {
+                            line.pop_back();
+                        }
+
+                        {
+                            std::lock_guard<std::mutex> lock(mutex_);
+                            lines_.push_back(std::move(line));
+                        }
+
+                        std::cout
+                            << "[INPUT] command received and queued."
+                            << '\n';
+                        std::cout.flush();
+
+                        condition_.notify_one();
                     }
+                } else
+#endif
+                {
+                    std::string line;
 
-                    std::cout
-                        << "[INPUT] command received and queued."
-                        << '\n';
-                    std::cout.flush();
+                    while (std::getline(std::cin, line)) {
+                        {
+                            std::lock_guard<std::mutex> lock(mutex_);
+                            lines_.push_back(std::move(line));
+                        }
 
-                    condition_.notify_one();
+                        std::cout
+                            << "[INPUT] command received and queued."
+                            << '\n';
+                        std::cout.flush();
+
+                        condition_.notify_one();
+                    }
                 }
 
                 {
