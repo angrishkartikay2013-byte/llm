@@ -959,17 +959,28 @@ float ULTRONModel::train(
 
         std::vector<std::size_t> window_starts;
 
+        // Seed each epoch from the optimizer step count already stored in the
+        // checkpoint. This makes an uninterrupted run and an epoch-boundary
+        // checkpoint/restore continuation choose the same next epoch sequence,
+        // while also preventing repeated sampling patterns across restarts.
+        const std::size_t epoch_step =
+            output_optimizer->step_count();
+        const unsigned int epoch_seed =
+            1337U ^
+            static_cast<unsigned int>(epoch_step) ^
+            static_cast<unsigned int>(
+                epoch_step >> 32U) ^
+            static_cast<unsigned int>(epoch);
+
         if (speed >= 9) {
             const std::size_t sampled_window_count =
                 std::max<std::size_t>(
                     1,
                     ((tokens.size() - 2) / window_step) + 1);
 
-            // Deterministic per-epoch randomness keeps runs reproducible while
-            // still changing sparse coverage from one epoch to the next.
-            std::mt19937 window_generator(
-                1337U +
-                static_cast<unsigned int>(epoch));
+            // Sparse high-speed modes sample new corpus positions each epoch
+            // instead of repeatedly visiting the same fixed stride positions.
+            std::mt19937 window_generator(epoch_seed);
 
             std::uniform_int_distribution<std::size_t> start_distribution(
                 0,
@@ -997,9 +1008,7 @@ float ULTRONModel::train(
 
         // Shuffle window order each epoch so the optimizer does not always
         // see the corpus in the same sequence.
-        std::mt19937 shuffle_generator(
-            1337U +
-            static_cast<unsigned int>(epoch));
+        std::mt19937 shuffle_generator(epoch_seed ^ 0x9e3779b9U);
         std::shuffle(
             window_starts.begin(),
             window_starts.end(),
