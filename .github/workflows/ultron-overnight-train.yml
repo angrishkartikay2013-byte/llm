@@ -159,7 +159,7 @@ jobs:
             Write-Host " ULTRON STAGE 2 - EPOCH $epoch"
             Write-Host "============================================================"
 
-            & $exe --load $checkpoint --train data\external\ultrachat_train_sft.txt --epochs 1 --lr 0.001 --save $checkpoint --save-every 1 --speed 3 --non-interactive
+            & $exe --load $checkpoint --train data\external\ultrachat_train_sft.txt --epochs 1 --lr $env:LEARNING_RATE --save $checkpoint --save-every 1 --speed $env:TRAIN_SPEED --non-interactive
 
             if ($LASTEXITCODE -ne 0) {
               throw "Stage 2 epoch $epoch failed with exit code $LASTEXITCODE."
@@ -236,7 +236,7 @@ jobs:
             Write-Host " ULTRON STAGE 3 - EPOCH $epoch"
             Write-Host "============================================================"
 
-            & $exe --load $checkpoint --train data\external\ultrachat_train_sft.txt --epochs 1 --lr 0.001 --save $checkpoint --save-every 1 --speed 3 --non-interactive
+            & $exe --load $checkpoint --train data\external\ultrachat_train_sft.txt --epochs 1 --lr $env:LEARNING_RATE --save $checkpoint --save-every 1 --speed $env:TRAIN_SPEED --non-interactive
 
             if ($LASTEXITCODE -ne 0) {
               throw "Stage 3 epoch $epoch failed with exit code $LASTEXITCODE."
