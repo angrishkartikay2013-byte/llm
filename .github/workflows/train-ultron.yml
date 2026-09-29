@@ -1,0 +1,330 @@
+name: ULTRON Nightly Training
+
+on:
+  schedule:
+    # 23:00 Asia/Kolkata (17:30 UTC) every day.
+    - cron: "30 17 * * *"
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: "Training epochs"
+        required: false
+        default: "1"
+        type: string
+      learning_rate:
+        description: "Learning rate"
+        required: false
+        default: "0.001"
+        type: string
+      speed:
+        description: "Training speed (1=full, 10=fastest)"
+        required: false
+        default: "5"
+        type: string
+      train_conversations:
+        description: "HF training conversations to download"
+        required: false
+        default: "1500"
+        type: string
+      validation_conversations:
+        description: "HF validation conversations to download"
+        required: false
+        default: "250"
+        type: string
+      fresh:
+        description: "Discard the previous checkpoint and start fresh"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ultron-training
+  cancel-in-progress: false
+
+jobs:
+  train:
+    name: Build, train, evaluate ULTRON
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+
+    env:
+      EPOCHS: ${{ inputs.epochs || '1' }}
+      LEARNING_RATE: ${{ inputs.learning_rate || '0.001' }}
+      SPEED: ${{ inputs.speed || '5' }}
+      TRAIN_CONVERSATIONS: ${{ inputs.train_conversations || '1500' }}
+      VALIDATION_CONVERSATIONS: ${{ inputs.validation_conversations || '250' }}
+      FRESH: ${{ inputs.fresh || 'false' }}
+
+    steps:
+      - name: Checkout ULTRON
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Recover previous checkpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p models
+
+          if [[ "$FRESH" == "true" ]]; then
+            echo "Fresh run requested; ignoring any previous checkpoint."
+            rm -f models/ultron_big.bin
+            exit 0
+          fi
+
+          previous_run="$(gh run list             --repo "$GITHUB_REPOSITORY"             --workflow "train-ultron.yml"             --status success             --limit 1             --json databaseId             --jq '.[0].databaseId' || true)"
+
+          if [[ -z "$previous_run" ]]; then
+            echo "No previous successful training run found. Starting a fresh checkpoint."
+            exit 0
+          fi
+
+          echo "Recovering checkpoint from successful workflow run $previous_run..."
+          gh run download "$previous_run"             --repo "$GITHUB_REPOSITORY"             --name ultron-checkpoint             --dir models
+
+          if [[ ! -f models/ultron_big.bin ]]; then
+            echo "::error::Previous successful run did not provide models/ultron_big.bin."
+            exit 1
+          fi
+
+          ls -lh models/ultron_big.bin
+
+      - name: Download Hugging Face control corpus
+        env:
+          TRAIN_CONVERSATIONS: ${{ env.TRAIN_CONVERSATIONS }}
+          VALIDATION_CONVERSATIONS: ${{ env.VALIDATION_CONVERSATIONS }}
+        run: |
+          python3 <<'PY'
+          import hashlib
+          import json
+          import os
+          import time
+          import urllib.parse
+          import urllib.request
+
+          DATASET = "HuggingFaceH4/ultrachat_200k"
+          CONFIG = "default"
+          API = "https://datasets-server.huggingface.co/rows"
+          TRAIN_WANTED = int(os.environ["TRAIN_CONVERSATIONS"])
+          VALIDATION_WANTED = int(os.environ["VALIDATION_CONVERSATIONS"])
+          BATCH = 100
+          MAX_CHARS = 12000
+
+          os.makedirs("data/external", exist_ok=True)
+
+          def normalize(text):
+              if not text:
+                  return ""
+              text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+              return "".join(ch for ch in text if ch in "\n\t" or ord(ch) >= 32).strip()
+
+          def fetch_rows(split, offset, length):
+              params = urllib.parse.urlencode({
+                  "dataset": DATASET,
+                  "config": CONFIG,
+                  "split": split,
+                  "offset": offset,
+                  "length": length,
+              })
+              url = API + "?" + params
+              last = None
+              for attempt in range(1, 6):
+                  try:
+                      with urllib.request.urlopen(url, timeout=120) as response:
+                          return json.load(response)
+                  except Exception as exc:
+                      last = exc
+                      if attempt == 5:
+                          raise
+                      time.sleep(min(30, 2 * attempt))
+              raise last
+
+          def collect(split, wanted, output_path):
+              seen = set()
+              accepted = 0
+              offset = 0
+
+              with open(output_path, "w", encoding="utf-8", newline="\n") as out:
+                  while accepted < wanted:
+                      length = min(BATCH, wanted - accepted)
+                      payload = fetch_rows(split, offset, length)
+                      rows = payload.get("rows", [])
+                      if not rows:
+                          raise RuntimeError(f"No more rows for {split} at offset {offset}")
+
+                      for item in rows:
+                          if accepted >= wanted:
+                              break
+
+                          messages = item.get("row", {}).get("messages", [])
+                          if len(messages) < 2:
+                              continue
+
+                          parts = []
+                          seen_user = False
+                          seen_assistant = False
+
+                          for message in messages:
+                              role = str(message.get("role", ""))
+                              content = normalize(str(message.get("content", "")))
+                              if not content:
+                                  continue
+
+                              if role == "user":
+                                  parts.append("USER: " + content)
+                                  seen_user = True
+                              elif role == "assistant":
+                                  if not seen_user:
+                                      continue
+                                  parts.append("ULTRON: " + content)
+                                  seen_assistant = True
+
+                          while parts and parts[-1].startswith("USER:"):
+                              parts.pop()
+
+                          if not seen_user or not seen_assistant or len(parts) < 2:
+                              continue
+
+                          conversation = "\n".join(parts).strip()
+                          if not (100 <= len(conversation) <= MAX_CHARS):
+                              continue
+                          if "<|" in conversation or "!!!" in conversation or "???" in conversation:
+                              continue
+
+                          digest = hashlib.sha256(conversation.encode("utf-8")).hexdigest()
+                          if digest in seen:
+                              continue
+                          seen.add(digest)
+
+                          out.write(conversation + "\n\n")
+                          accepted += 1
+
+                          if accepted % 100 == 0:
+                              print(f"{split}: {accepted}/{wanted}")
+
+                      offset += len(rows)
+
+                      total = int(payload.get("num_rows_total", 0) or 0)
+                      if total and offset >= total and accepted < wanted:
+                          raise RuntimeError(
+                              f"Reached end of {split}: accepted {accepted}/{wanted}"
+                          )
+
+              return accepted
+
+          train_path = "data/external/ultrachat_train_sft.txt"
+          validation_path = "data/external/ultrachat_test_sft.txt"
+
+          train_count = collect("train_sft", TRAIN_WANTED, train_path)
+          validation_count = collect("test_sft", VALIDATION_WANTED, validation_path)
+
+          train_bytes = os.path.getsize(train_path)
+          validation_bytes = os.path.getsize(validation_path)
+
+          manifest = [
+              f"dataset={DATASET}",
+              f"config={CONFIG}",
+              "train_split=train_sft",
+              "validation_split=test_sft",
+              f"train_conversations={train_count}",
+              f"validation_conversations={validation_count}",
+              f"train_bytes={train_bytes}",
+              f"validation_bytes={validation_bytes}",
+              f"downloaded_utc={time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+          ]
+          with open("data/external/ultrachat_manifest.txt", "w", encoding="utf-8") as out:
+              out.write("\n".join(manifest) + "\n")
+
+          print("\n".join(manifest))
+          PY
+
+      - name: Configure release build
+        run: |
+          cmake -S . -B build -G Ninja             -DCMAKE_BUILD_TYPE=Release             -DBUILD_TESTING=ON
+
+      - name: Build ULTRON
+        run: |
+          cmake --build build --parallel "$(nproc)"
+
+      - name: Run smoke tests
+        run: |
+          ctest --test-dir build --output-on-failure
+
+      - name: Train ULTRON
+        run: |
+          set -euo pipefail
+          mkdir -p models logs
+
+          args=(
+            --train data/external/ultrachat_train_sft.txt
+            --epochs "$EPOCHS"
+            --lr "$LEARNING_RATE"
+            --save models/ultron_big.bin
+            --save-every 1
+            --speed "$SPEED"
+            --non-interactive
+          )
+
+          if [[ -f models/ultron_big.bin && "$FRESH" != "true" ]]; then
+            echo "Continuing from recovered checkpoint."
+            args+=(--load models/ultron_big.bin)
+          else
+            echo "Starting a fresh model."
+          fi
+
+          ./build/ultron "${args[@]}" 2>&1 | tee logs/training.log
+
+      - name: Evaluate checkpoint
+        run: |
+          set -euo pipefail
+          test -f models/ultron_big.bin
+
+          {
+            echo "===== ULTRON TRAINING EVALUATION ====="
+            date -u
+            ./build/ultron               --load models/ultron_big.bin               --eval data/external/ultrachat_train_sft.txt               --no-online-learning               --non-interactive
+
+            echo
+            echo "===== ULTRON HELD-OUT EVALUATION ====="
+            ./build/ultron               --load models/ultron_big.bin               --eval data/external/ultrachat_test_sft.txt               --no-online-learning               --non-interactive
+          } 2>&1 | tee logs/evaluation.txt
+
+      - name: Write run summary
+        run: |
+          {
+            echo "## ULTRON training"
+            echo ""
+            echo "- Epochs: \`$EPOCHS\`"
+            echo "- Learning rate: \`$LEARNING_RATE\`"
+            echo "- Speed: \`$SPEED/10\`"
+            echo "- Train conversations: \`$TRAIN_CONVERSATIONS\`"
+            echo "- Validation conversations: \`$VALIDATION_CONVERSATIONS\`"
+            echo ""
+            echo "### Evaluation"
+            sed -n '/===== ULTRON TRAINING EVALUATION =====/,/===== ULTRON HELD-OUT EVALUATION =====/p' logs/evaluation.txt || true
+            tail -n 12 logs/evaluation.txt
+            echo ""
+            echo "Checkpoint:"
+            ls -lh models/ultron_big.bin
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload checkpoint and logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultron-checkpoint
+          path: |
+            models/ultron_big.bin
+            logs/training.log
+            logs/evaluation.txt
+            data/external/ultrachat_manifest.txt
+          retention-days: 30
+          if-no-files-found: error
