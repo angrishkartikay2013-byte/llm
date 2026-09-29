@@ -1,0 +1,20 @@
+{
+  "project": "TITAN",
+  "repository": "angrishkartikay2013-byte/llm",
+  "install_root": "E:\\Titan\\repos",
+  "policy": "Keep heavyweight external projects isolated from the ULTRON/TITAN C++ core.",
+  "repos": [
+    {"name":"UFO","url":"https://github.com/microsoft/UFO.git","path":"UFO","role":"Windows desktop hands","status":"installed-working"},
+    {"name":"A2A","url":"https://github.com/a2aproject/A2A.git","path":"A2A","role":"AI-to-AI agent communication protocol","status":"add"},
+    {"name":"a2a-python","url":"https://github.com/a2aproject/a2a-python.git","path":"a2a-python","role":"Python A2A SDK","status":"add"},
+    {"name":"LangGraph","url":"https://github.com/langchain-ai/langgraph.git","path":"LangGraph","role":"stateful agent orchestration","status":"add"},
+    {"name":"mcp-servers","url":"https://github.com/modelcontextprotocol/servers.git","path":"mcp-servers","role":"MCP reference tool servers","status":"add"},
+    {"name":"ComfyUI","url":"https://github.com/comfyanonymous/ComfyUI.git","path":"ComfyUI","role":"image generation and visual workflow backend","status":"add"},
+    {"name":"Wan2.1","url":"https://github.com/Wan-Video/Wan2.1.git","path":"Wan2.1","role":"video generation","status":"add"},
+    {"name":"browser-use","url":"https://github.com/browser-use/browser-use.git","path":"browser-use","role":"AI browser control","status":"add"},
+    {"name":"openagent","url":"https://github.com/the-open-agent/openagent.git","path":"openagent","role":"personal-agent reference implementation","status":"reference"},
+    {"name":"agent-memory","url":"https://github.com/neo4j-labs/agent-memory.git","path":"agent-memory","role":"graph-native short/long/reasoning memory","status":"reference"},
+    {"name":"mnem","url":"https://github.com/Uranid/mnem.git","path":"mnem","role":"offline versioned GraphRAG memory","status":"add"},
+    {"name":"PlugMem","url":"https://github.com/TIMAN-group/PlugMem.git","path":"PlugMem","role":"long-term experience memory","status":"reference"}
+  ]
+}
