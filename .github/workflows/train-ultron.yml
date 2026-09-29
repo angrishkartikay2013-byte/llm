@@ -89,7 +89,10 @@ jobs:
           fi
 
           echo "Recovering checkpoint from successful workflow run $previous_run..."
-          gh run download "$previous_run"             --repo "$GITHUB_REPOSITORY"             --name ultron-checkpoint             --dir models
+          gh run download "$previous_run" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name ultron-checkpoint \
+            --dir .
 
           if [[ ! -f models/ultron_big.bin ]]; then
             echo "::error::Previous successful run did not provide models/ultron_big.bin."
