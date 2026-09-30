@@ -1,6 +1,8 @@
 name: ULTRON Nightly Training
 
 on:
+  push:
+    branches: ["main"]
   schedule:
     # 23:00 Asia/Kolkata (17:30 UTC) every day.
     - cron: "30 17 * * *"
@@ -47,6 +49,8 @@ concurrency:
 
 jobs:
   train:
+    # One-time connector test: only the dedicated test commit may trigger via push.
+    if: github.event_name != 'push' || github.event.head_commit.message == 'TEST ULTRON NIGHTLY TRAINING'
     name: Build, train, evaluate ULTRON
     runs-on: ubuntu-latest
     timeout-minutes: 330
